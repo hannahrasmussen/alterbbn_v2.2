@@ -78,7 +78,7 @@ typedef struct relicparam
     double Sigmarad0,nSigmarad,TSigmaradend; // standard entropy injection
     double nt0,nnt,Tnend; // non-thermal production of relics
     int coupd; // dark fluid coupling to plasma
-    
+
     double quintn2,quintn3,quintn4,quintT12,quintT23,quintT34; // effective quintessence model
 
     int phi_model; // decaying scalar field model switch
@@ -90,19 +90,19 @@ typedef struct relicparam
     double Tstdstar_max;
 
     double mgravitino; // gravitino mass
-            
+
     double relicmass;
     int scalar;
-    
+
     int solver; // switch for linear or logarithmic differential equation solver
 	int beta_samples;
-    
+
     double Tfo,Tmax; // Freeze out and maximal temperature
-    
+
     int full_comput; // Switch to deactivate the fast freeze out temperature determination
-  
+
     double table_eff[276][3];   // Reads values from the SgStar files
-   
+
     int use_table_rhoPD;
     double table_rhoPD[2][NTABMAX];
     int size_table_rhoPD;
@@ -110,7 +110,7 @@ typedef struct relicparam
     /*---------------------*/
     /* AlterBBN parameters */
     /*---------------------*/
-    
+
     int err;
     int failsafe;				// Switch for the integration method
     double eta0;                // Initial Baryon to photon ratio
@@ -132,6 +132,18 @@ typedef struct relicparam
 	double rhob0;				// current baryon density
 	double b_cdm_ratio;			// current ratio of baryon density to cold dark matter density
 	int constraints;			// 1=Yp, 2=+H2/H, 3=+Li7/H, 4=+He3/H
+
+	/*----------------------------------------------------------------------*/
+	/*  Pointers for the cubic spline interpolation of rho_nu and drho_nu   */
+	/*----------------------------------------------------------------------*/
+
+	double row;
+	double Tcm_arr[1000];
+	double arho[1000];
+	double brho[1000];
+	double crho[1000];
+	double drho[1000];
+
 }
 relicparam;
 
@@ -239,6 +251,8 @@ double entropy_Sigmarad(double T, struct relicparam* paramrelic);
 double nonthermal(double T, struct relicparam* paramrelic);
 double neutdens(double Tnu, struct relicparam* paramrelic);
 double neutdens_deriv(double Tnu, struct relicparam* paramrelic);
+double neutdens_vs(double Tnu, struct relicparam* paramrelic);
+double neutdens_deriv_vs(double Tnu, struct relicparam* paramrelic);
 double neutN(double T);
 
 /* bbnrate.c */
@@ -257,4 +271,3 @@ int nucl(struct relicparam* paramrelic, double ratioH[NNUC+1]);
 
 /* bbn_constraints.c */
 int bbn_excluded(struct relicparam* paramrelic);
-

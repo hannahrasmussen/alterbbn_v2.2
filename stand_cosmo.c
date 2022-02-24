@@ -7,26 +7,6 @@
 /* Calculation of the abundance of the elements from BBN   */
 /*-------------------------------------------------------- */
 
-void create_csv(char *filename,double a[][3],int m,int n)
-{
-	FILE *fp;
-	int i,j;
-	filename=strcat(filename,".csv");
-	fp=fopen(filename,"w+");
-	fprintf(fp,"bound, low, cent, high");
-	//fprintf(fp,"bound, Yp, H2/H, He3/H, Li7/H, Li6/H, He7/H");
-
-	for(i=0;i<m;i++)
-	{
-		fprintf(fp,"\n%i",i+1);
-		for(j=0;j<n;j++)
- 		{
-			fprintf(fp,",%e ",a[i][j]);
-		}
-	}
-	fclose(fp);
- }
-
 int main(int argc,char** argv)
 {
 	int failsafe;
@@ -51,32 +31,27 @@ int main(int argc,char** argv)
 	double ratioH[NNUC+1],cov_ratioH[NNUC+1][NNUC+1];
 	double H2_H,He3_H,Yp,Li7_H,Li6_H,Be7_H;
 	double sigma_H2_H,sigma_He3_H,sigma_Yp,sigma_Li7_H,sigma_Li6_H,sigma_Be7_H;
-	double a[6][3];
-	char str[100] = "stand_cosmo";
 
 	Init_cosmomodel(&paramrelic);
 
 	paramrelic.failsafe=failsafe;
 
 	printf("\t Yp\t\t H2/H\t\t He3/H\t\t Li7/H\t\t Li6/H\t\t Be7/H\n");
+
 	paramrelic.err=2;
 	nucl(&paramrelic,ratioH);
 	H2_H=ratioH[3];Yp=ratioH[6];Li7_H=ratioH[8];Be7_H=ratioH[9];He3_H=ratioH[5];Li6_H=ratioH[7];
 	printf("  low:\t %.3e\t %.3e\t %.3e\t %.3e\t %.3e\t %.3e\n",Yp,H2_H,He3_H,Li7_H,Li6_H,Be7_H);
-	a[0][0] = Yp, a[1][0] = H2_H, a[2][0] = He3_H, a[3][0] = Li7_H, a[4][0] = Li6_H, a[5][0] = Be7_H;
 
 	paramrelic.err=0;
 	nucl(&paramrelic,ratioH);
 	H2_H=ratioH[3];Yp=ratioH[6];Li7_H=ratioH[8];Be7_H=ratioH[9];He3_H=ratioH[5];Li6_H=ratioH[7];
 	printf(" cent:\t %.3e\t %.3e\t %.3e\t %.3e\t %.3e\t %.3e\n",Yp,H2_H,He3_H,Li7_H,Li6_H,Be7_H);
-	a[0][1] = Yp, a[1][1] = H2_H, a[2][1] = He3_H, a[3][1] = Li7_H, a[4][1] = Li6_H, a[5][1] = Be7_H;
 
 	paramrelic.err=1;
 	nucl(&paramrelic,ratioH);
 	H2_H=ratioH[3];Yp=ratioH[6];Li7_H=ratioH[8];Be7_H=ratioH[9];He3_H=ratioH[5];Li6_H=ratioH[7];
 	printf(" high:\t %.3e\t %.3e\t %.3e\t %.3e\t %.3e\t %.3e\n\n",Yp,H2_H,He3_H,Li7_H,Li6_H,Be7_H);
-	a[0][2] = Yp, a[1][2] = H2_H, a[2][2] = He3_H, a[3][2] = Li7_H, a[4][2] = Li6_H, a[5][2] = Be7_H;
-	create_csv(str,a,6,3);
 
 	paramrelic.err=3;
 	if(nucl_err(&paramrelic,ratioH,cov_ratioH))
