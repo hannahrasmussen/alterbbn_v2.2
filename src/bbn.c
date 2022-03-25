@@ -393,8 +393,8 @@ int linearize(double T, const double reacparam[NNUCREACMAX+1][10], double f[NNUC
 
 /*----------------------------------------------------*/
 
-int fill_params(double T, double Tnu, double phie, double h_eta, double a, double rho_phi, double dt0, double* dT, double* dTnu, double* dphie, double* dh_eta, double* da, double* drhophi, double dY_dt[NNUC+1], double Y0[NNUC+1], double Y[NNUC+1], const double Am[NNUC+1], const double Zm[NNUC+1], const double Dm[NNUC+1], const double reacparam[NNUCREAC+1][10], double norm, int loop, int inc, int ip, struct relicparam* paramrelic, struct errorparam* paramerror)
-/* Routine computing the time-derivatives of T, phie, h_eta, a, rho_phi and Y[] */
+int fill_params(double T, double Tnu, double phie, double h_eta, double a, double rho_phi, double rho_vs, double dt0, double* dT, double* dTnu, double* dphie, double* dh_eta, double* da, double* drhophi, double* drhovs, double dY_dt[NNUC+1], double Y0[NNUC+1], double Y[NNUC+1], const double Am[NNUC+1], const double Zm[NNUC+1], const double Dm[NNUC+1], const double reacparam[NNUCREAC+1][10], double norm, int loop, int inc, int ip, struct relicparam* paramrelic, struct errorparam* paramerror)
+/* Routine computing the time-derivatives of T, phie, h_eta, a, rho_phi, rho_vs, and Y[] */
 {
 	int i;
 	int fail;
@@ -423,6 +423,8 @@ int fill_params(double T, double Tnu, double phie, double h_eta, double a, doubl
 	double Sigmarad=entropy_Sigmarad(T,paramrelic);
 
 	if(paramrelic->phi_model&&rho_phi!=0.) Sigmarad=paramrelic->Gamma_phi*rho_phi/T;
+	if(paramrelic->vs_model&&rho_vs!=0.) Sigmarad=dQdt_vs(T,paramrelic)/T;
+	//printf("%lf\n",Sigmarad);
 
 	double z=m_e/T;
 
@@ -557,18 +559,23 @@ int fill_params(double T, double Tnu, double phie, double h_eta, double a, doubl
 	double Ti=paramrelic->Tinit*K_to_eV;
 	double Tnud=paramrelic->Tnudec*K_to_eV;
 
-	//double rho_neutrinos=neutdens(Tnu,paramrelic);
-	double rho_neutrinos=neutdens_vs(Tnu,paramrelic);
-	double P_neutrinos=0.;
-	double drho_neutrinos_dTnu=0.;
+	double rho_neutrinos_vs, P_neutrinos_vs, drho_neutrinos_dTnu_vs, rho_neutrinos, P_neutrinos, drho_neutrinos_dTnu;
+	if (paramrelic->vs_model)
+	{
+		rho_neutrinos_vs=neutdens_vs(Tnu,paramrelic);
+		P_neutrinos_vs=rho_neutrinos_vs/3.;
+		drho_neutrinos_dTnu_vs=neutdens_deriv_vs(Tnu,paramrelic);
+	}
+	else
+	{
+		rho_neutrinos=neutdens(Tnu,paramrelic);
+		P_neutrinos=rho_neutrinos/3.;
+		drho_neutrinos_dTnu = neutdens_deriv(Tnu,paramrelic);;
+	}
 	double rho_neuteq=0.;
 	double P_neuteq=0.;
 	double drho_neuteq=0.;
 	double Tnu_eq=Tnu;
-
-	P_neutrinos=rho_neutrinos/3.;
-	//drho_neutrinos_dTnu=neutdens_deriv(Tnu,paramrelic);
-	drho_neutrinos_dTnu=neutdens_deriv_vs(Tnu,paramrelic);
 
 	if((paramrelic->wimp)&&((paramrelic->neut_coupled)||(paramrelic->neuteq_coupled)))
 	{
@@ -621,7 +628,9 @@ int fill_params(double T, double Tnu, double phie, double h_eta, double a, doubl
 				/* d(pi^2/2 1/M_u h sum Z_i Y_i)/d(phie) */
 
 	// Summing up all energy densities from different sources
-	double H=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_wimp+rho_neutrinos+rho_neuteq+rho_baryons+rho_cdm+rhod+rho_phi));
+	double H;
+	if (paramrelic->vs_model) {H=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_wimp+rho_neutrinos_vs+rho_neuteq+rho_baryons+rho_cdm+rhod+rho_phi+rho_vs));}
+	else {H=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_wimp+rho_neutrinos+rho_neuteq+rho_baryons+rho_cdm+rhod+rho_phi+rho_vs));}
 
 	rate_pn(f,r,T/K_to_eV,Tnu/K_to_eV,paramrelic,paramerror); // conversion to CGS units
 
@@ -670,11 +679,13 @@ int fill_params(double T, double Tnu, double phie, double h_eta, double a, doubl
 		// WIMPs are coupled to neutrinos, so need to dynamically vary Tnu
 		if (paramrelic->neuteq_coupled)
 		{
-			dlna3_dTnu=-(drho_neutrinos_dTnu+drho_neuteq+drho_wimp_dTvar)/(rho_neutrinos+P_neutrinos+rho_neuteq+P_neuteq+rho_wimp+P_wimp-pow(T,4.)/3.*neutN(T));
+			if (paramrelic->vs_model) {dlna3_dTnu=-(drho_neutrinos_dTnu_vs+drho_neuteq+drho_wimp_dTvar)/(rho_neutrinos_vs+P_neutrinos_vs+rho_neuteq+P_neuteq+rho_wimp+P_wimp-pow(T,4.)/3.*neutN(T));}
+			else {dlna3_dTnu=-(drho_neutrinos_dTnu+drho_neuteq+drho_wimp_dTvar)/(rho_neutrinos+P_neutrinos+rho_neuteq+P_neuteq+rho_wimp+P_wimp-pow(T,4.)/3.*neutN(T));}
 		}
 		else
 		{
-			dlna3_dTnu=-(drho_neutrinos_dTnu+drho_wimp_dTvar)/(rho_neutrinos+P_neutrinos+rho_wimp+P_wimp-pow(T,4.)/3.*neutN(T));
+			if (paramrelic->vs_model) {dlna3_dTnu=-(drho_neutrinos_dTnu_vs+drho_wimp_dTvar)/(rho_neutrinos_vs+P_neutrinos_vs+rho_wimp+P_wimp-pow(T,4.)/3.*neutN(T));}
+			else {dlna3_dTnu=-(drho_neutrinos_dTnu+drho_wimp_dTvar)/(rho_neutrinos+P_neutrinos+rho_wimp+P_wimp-pow(T,4.)/3.*neutN(T));}
 		}
 
 		// No WIMP contribution to dlna3_dT, since they are not EM coupled
@@ -685,9 +696,10 @@ int fill_params(double T, double Tnu, double phie, double h_eta, double a, doubl
 	}
 	else
 	{
-		dlna3_dTnu=-(drho_neutrinos_dTnu+drho_neuteq)/(rho_neutrinos+P_neutrinos+rho_neuteq+P_neuteq-pow(T,4.)/3.*neutN(T));
-
 		// No WIMPs (relevant WIMP parameters set to 0 earlier), or EM coupled WIMPs
+		if (paramrelic->vs_model) {dlna3_dTnu=-(drho_neutrinos_dTnu_vs+drho_neuteq)/(rho_neutrinos_vs+P_neutrinos_vs+rho_neuteq+P_neuteq-pow(T,4.)/3.*neutN(T));}
+		else {dlna3_dTnu=-(drho_neutrinos_dTnu+drho_neuteq)/(rho_neutrinos+P_neutrinos+rho_neuteq+P_neuteq-pow(T,4.)/3.*neutN(T));}
+
 		dlna3_dT=-(drho_gamma_dT+drho_epem_dT+drho_epem_dphie*dphie_dT+(rho_baryons*K_to_eV)*zeta*sum_Y
 					+paramrelic->coupd*drhod_dT-T*dsd_dT+drho_wimp_dTvar)/
 				(rho_gamma+P_gamma+rho_epem+P_epem+rho_baryons*(2./3.*zeta*T*sum_Y+zeta*T*sum_dY_dt/(H*3.)+sum_DeltaMdY_dt/(H*3.))
@@ -695,6 +707,7 @@ int fill_params(double T, double Tnu, double phie, double h_eta, double a, doubl
 	}
 
 	double dTnu_dt,dT_dt;
+
 	if(isinf(dlna3_dTnu)) dTnu_dt=0.; else dTnu_dt=3.*H/dlna3_dTnu;
 	if(isinf(dlna3_dT)) dT_dt=0.; dT_dt=3.*H/dlna3_dT;
 
@@ -704,7 +717,10 @@ int fill_params(double T, double Tnu, double phie, double h_eta, double a, doubl
 	double da_dt=H*a;
 
 	double drhophi_dt=0.;
+	double drhovs_dt=0.;
 	if(paramrelic->phi_model&&rho_phi!=0.) drhophi_dt=-(paramrelic->n_phi*H+paramrelic->Gamma_phi)*rho_phi;
+	//if(paramrelic->vs_model&&rho_vs!=0.) drhovs_dt=-(3*H+paramrelic->Gamma_vs)*paramrelic->ms/1000*ns(T,paramrelic);
+	if(paramrelic->vs_model&&rho_vs!=0.) drhovs_dt=-(3*H+paramrelic->Gamma_vs)*rho_vs; //??
 
 	*dT=dT_dt;
 	*dTnu=dTnu_dt;
@@ -712,6 +728,7 @@ int fill_params(double T, double Tnu, double phie, double h_eta, double a, doubl
 	*dh_eta=dh_dt;
 	*da=da_dt;
 	*drhophi=drhophi_dt;
+	*drhovs=drhovs_dt;
 
 	if(T>1.e-2) // At high temperatures, evaluate dY_dt for protons, neutrons and deuterium from their distribution functions
 	{
@@ -745,12 +762,24 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 
 #ifdef OUTPUT
 	FILE *output;
-	//if(paramrelic->err==0) output=fopen("evolution.out","w");
-	//if(paramrelic->err==0) fprintf(output,"t (s)\t\ta\t\t\tT (GK)\t\tTnu (GK)\tphotons\t\tbaryons\t\tneutrinos\tphi (GeV^4)\tY(n)\t\tY(p)\t\tY(2H)\t\tY(4He)\t\tY(7Li)\t\teta\n");
-	if(paramrelic->err==0) output=fopen("evolution.csv","w");
-	//if(paramrelic->err==0) fprintf(output,"t(s), a, T (GK), Tnu (GK), photons, baryons, neutrinos, phi (GeV^4), Y(n), Y(p), Y(2H), Y(3H), Y(3He), Y(4He), Y(6Li), Y(7Li), eta\n");
-	if(paramrelic->err==0) fprintf(output,"t(s), a, T (MeV), Tnu (MeV), photons, baryons, neutrinos, phi (GeV^4), Y(n), Y(p), Y(2H), Y(3H), Y(3He), Y(4He), Y(6Li), Y(7Li), Y(7Be), eta\n");
-
+	if (paramrelic->err==0)
+	{
+		if (paramrelic->vs_model)
+		{
+			output=fopen("evolution_vs.csv","w");
+			fprintf(output,"t(s), a, T (MeV), Tnu (MeV), photons, baryons, rho_{{nu}_{vs}}, drho_{{nu}_{vs}}, phi (GeV^4), rho_vs(MeV^4), sigma_rad (MeV^4), Y(n), Y(p), Y(2H), Y(3H), Y(3He), Y(4He), Y(6Li), Y(7Li), Y(7Be), eta\n");
+		}
+		else if (paramrelic->phi_model)
+		{
+			output=fopen("evolution_phi.csv","w");
+			fprintf(output,"t(s), a, T (MeV), Tnu (MeV), photons, baryons, rho_{nu}, drho_{nu}, phi (MeV^4), rho_vs(MeV^4), sigma_rad (MeV^4), Y(n), Y(p), Y(2H), Y(3H), Y(3He), Y(4He), Y(6Li), Y(7Li), Y(7Be), eta\n");
+		}
+		else
+		{
+			output=fopen("evolution.csv","w");
+			fprintf(output,"t(s), a, T (MeV), Tnu (MeV), photons, baryons, rho_{nu}, drho_{nu}, phi (GeV^4), rho_vs(GeV^4), sigma_rad (GeV^4), Y(n), Y(p), Y(2H), Y(3H), Y(3He), Y(4He), Y(6Li), Y(7Li), Y(7Be), eta\n");
+		}
+	}
 #endif
 
     double f[NNUCREACMAX+1],r[NNUCREACMAX+1];
@@ -772,7 +801,9 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
     double dY_dt0[NNUC+1],dY_dt[NNUC+1],Y0[NNUC+1],Y0b[NNUC+1],Y[NNUC+1];
     double rho_phi0;
     double rho_phi,drhophi_dt;
-	double da_dt,da_dt0;
+		double rho_vs0;
+    double rho_vs,drhovs_dt;
+		double da_dt,da_dt0;
     double dtmin;
     double z;               // Parameterized electron mass -> z = m_e*c^2 / (k_B*T)
     double H;               // Hubble parameter
@@ -937,9 +968,10 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
     double Ti=paramrelic->Tinit*K_to_eV;    // Initial temperature in GeV
     double Tf=0.01*K_to_eV;                // Final temperature in GeV
     double Ytmin =1.e-30;
-	double a=8.e-11;
+		double a=8.e-11;
 
-	if(paramrelic->phi_model&&paramrelic->rhot_phi0!=0.) rho_phi=(paramrelic->rhot_phi0)*pow(pi,2.)/15.*pow(Ti,4.); else rho_phi=0.;
+		if(paramrelic->phi_model&&paramrelic->rhot_phi0!=0.) rho_phi=(paramrelic->rhot_phi0)*pow(pi,2.)/15.*pow(Ti,4.); else rho_phi=0.;
+		if(paramrelic->vs_model&&paramrelic->rhot_vs0!=0.) rho_vs = paramrelic->ms/1000*paramrelic->ns0; else rho_vs=0.;
 
     /* Initialization of relevant temperatures.
      * T: photon/e+- temp. Also the WIMP temperature in the case of EM coupled WIMPs
@@ -985,7 +1017,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 
     double rho_gamma,P_gamma,drho_gamma_dT;
     double rho_epem,P_epem,drho_epem_dT,drho_epem_dphie,dM_epem_dT,dN_epem_dphie;
-    double rho_neutrinos,P_neutrinos,drho_neutrinos_dTnu,rho_neuteq,P_neuteq,drho_neuteq;
+    double rho_neutrinos,rho_neutrinos_vs,P_neutrinos,drho_neutrinos_dTnu,rho_neuteq,P_neuteq,drho_neuteq;
     double rho_baryons=0.;
     double rho_cdm=0.;
     double rho_wimp,P_wimp,drho_wimp_dTvar,rho_wimp_Tnud,P_wimp_Tnud,n_wimp,dn_wimp_dTvar_phiWpart,dn_wimp_dTvar_zpart;
@@ -1047,7 +1079,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
      * prior to e+- annihilation and is therefore evolved together with the temperature. */
     double h_eta;
     if(paramrelic->phi_model&&rho_phi!=0.&&paramrelic->T_RH>1.e-5) h_eta=paramrelic->eta0*M_u*g_to_GeV*2.*zeta3/pow(pi,2.)*(1. + entropy_epem_gamma + entropy_wimp_gamma + 3./4.*rho_phi/rho_gamma*pow(paramrelic->T_RH/Ti,paramrelic->n_phi-4.));
-    else h_eta=paramrelic->eta0*M_u*g_to_GeV*2.*zeta3/pow(pi,2.)*(1. + entropy_epem_gamma + entropy_wimp_gamma);
+    else h_eta=paramrelic->eta0*M_u*g_to_GeV*2.*zeta3/pow(pi,2.)*(1. + entropy_epem_gamma + entropy_wimp_gamma); //??
 
     double phie=h_eta*Y[2]/(M_u*g_to_GeV)*pow(pi,2.)/(2.*pow(z,3.)*(Lbessel(z)-Lbessel(2.*z)*2.+Lbessel(3.*z)*3.-Lbessel(4.*z)*4.
                                                       +Lbessel(5.*z)*5.-Lbessel(6.*z)*6.+Lbessel(7.*z)*7.));
@@ -1077,15 +1109,17 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
         cosh6=cosh(phie*6.);
         cosh7=cosh(phie*7.);
 
-        //rho_neutrinos=neutdens(Tnu,paramrelic);
-				rho_neutrinos=neutdens_vs(Tnu,paramrelic);
+				if (paramrelic->vs_model) {rho_neutrinos_vs=neutdens_vs(Tnu,paramrelic);}
+        else {rho_neutrinos=neutdens(Tnu,paramrelic);}
         rho_neuteq=2.*pow(pi,2.)/30.*7./8.*paramrelic->dNnu*pow(Tnu_eq,4.);
         rho_epem=(Mbessel(z)*cosh1-Mbessel(2.*z)*cosh2+Mbessel(3.*z)*
                   cosh3-Mbessel(4.*z)*cosh4+Mbessel(5.*z)*cosh5-
                   Mbessel(6.*z)*cosh6+Mbessel(7.*z)*cosh7)*2.*pow(m_e,4.)/pow(pi,2.);
 
-        H_SBBN=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_neutrinos+rho_neuteq+rho_baryons+rho_cdm));
-        H_WIMP=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_wimp+rho_neutrinos+rho_neuteq+rho_baryons+rho_cdm+rhod+rho_phi));
+        if (paramrelic->vs_model) {H_SBBN=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_neutrinos_vs+rho_neuteq+rho_baryons+rho_cdm));}
+				else {H_SBBN=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_neutrinos+rho_neuteq+rho_baryons+rho_cdm));}
+        if (paramrelic->vs_model) {H_WIMP=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_wimp+rho_neutrinos_vs+rho_neuteq+rho_baryons+rho_cdm+rhod+rho_phi+rho_vs));}
+				else {H_WIMP=sqrt(G*8.*pi/3.*(rho_gamma+rho_epem+rho_wimp+rho_neutrinos+rho_neuteq+rho_baryons+rho_cdm+rhod+rho_phi+rho_vs));}
 
         t=t*H_SBBN/H_WIMP;
     }
@@ -1156,14 +1190,14 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 
 		double dt=dt0;
 		double drhophi_dt0;
+		double drhovs_dt0;
 
 		while(ltime == 0)
 		{
 			for(loop=1;loop<=2;loop++)
 			{
 				/* ########### DARK ENERGY DENSITY AND ENTROPY ########### */
-
-				fill_params(T,Tnu,phie,h_eta,a,rho_phi,dt,&dT_dt,&dTnu_dt,&dphie_dt,&dh_dt,&da_dt,&drhophi_dt,dY_dt,Y0,Y,Am,Zm,Dm,reacparam,norm,loop,inc,ip,paramrelic,paramerror);
+				fill_params(T,Tnu,phie,h_eta,a,rho_phi,rho_vs,dt,&dT_dt,&dTnu_dt,&dphie_dt,&dh_dt,&da_dt,&drhophi_dt,&drhovs_dt,dY_dt,Y0,Y,Am,Zm,Dm,reacparam,norm,loop,inc,ip,paramrelic,paramerror);
 
 				dlnT_dt=dT_dt/T;
 
@@ -1208,14 +1242,18 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					da_dt0=da_dt;
 
 					T=T0+dT0_dt*dt;
-
 					if(paramrelic->phi_model&&rho_phi!=0.)
 					{
 						rho_phi0=rho_phi;
 						drhophi_dt0=drhophi_dt;
 						rho_phi=max(0.,rho_phi0+drhophi_dt0*dt);
 					}
-
+					if(paramrelic->vs_model&&rho_vs!=0.)
+					{
+						rho_vs0=rho_vs;
+						drhovs_dt0=drhovs_dt;
+						rho_vs=max(0.,rho_vs0+drhovs_dt0*dt);
+					}
 
 					if(T<0||isnan(T)||isinf(T))
 					{
@@ -1264,6 +1302,9 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=max(0.,rho_phi0+(drhophi_dt0+drhophi_dt)*0.5*dt);
 					if(paramrelic->phi_model&&rho_phi!=0.) if(rho_phi<1.e-20*pow(pi,2.)/15.*pow(T,4.)) rho_phi=0.;
 
+					if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=max(0.,rho_vs0+(drhovs_dt0+drhovs_dt)*0.5*dt);
+					if(paramrelic->vs_model&&rho_vs!=0.) if(rho_vs<1.e-20*pow(pi,2.)/15.*pow(T,4.)) rho_vs=0.;
+
 					Tnu=Tnu0+(dTnu_dt+dTnu0_dt)*0.5*dt;
 
 					if ((paramrelic->wimp)&&((paramrelic->neut_coupled)||(paramrelic->neuteq_coupled)))
@@ -1279,8 +1320,12 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					}
 
 #ifdef OUTPUT
-				//if(paramrelic->err==0) fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T/K_to_eV,Tnu/K_to_eV,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),rho_phi,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));
-				if(paramrelic->err==0) fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens_vs(Tnu,paramrelic),rho_phi,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));
+				if (paramrelic->err==0)
+				{
+					if (paramrelic->vs_model) {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens_vs(Tnu,paramrelic),neutdens_deriv_vs(Tnu,paramrelic),rho_phi,rho_vs*pow(1000,4.),dQdt_vs(T,paramrelic)*pow(1000,4.)/T,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+					else if (paramrelic->phi_model) {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),neutdens_deriv(Tnu,paramrelic),rho_phi,rho_vs,paramrelic->Gamma_phi*rho_phi*pow(1000,4.)/T,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+					else {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),neutdens_deriv(Tnu,paramrelic),rho_phi,rho_vs,entropy_Sigmarad(T,paramrelic),Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+				}
 #endif
 
 				}
@@ -1313,6 +1358,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 		double Tnu1,Tnu2,Tnu_sav2;
 		double Y1[NNUC+1],Y2[NNUC+1],Y_sav2[NNUC+1];
 		double rhophi1,rhophi2,rhophi_sav,rhophi_sav2,drhophi_dt0;
+		double rhovs1,rhovs2,rhovs_sav,rhovs_sav2,drhovs_dt0;
 		double a1,a2,a_sav2;
 
 		double Ytest;
@@ -1358,6 +1404,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y_sav[i]=Y[i];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rhophi_sav=rho_phi;
+				if(paramrelic->vs_model&&rho_vs!=0.) rhovs_sav=rho_vs;
 			}
 
 			for(iloop=0;iloop<=5;iloop++)
@@ -1378,6 +1425,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav;
 						break;
 					}
 
@@ -1393,6 +1441,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 						phie=phie_sav+dphie_dt*dt;
 						a=a_sav+da_dt*dt;
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav+drhophi_dt*dt;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav+drhovs_dt*dt;
 
 						dT0_dt=dT_dt;
 						dTnu0_dt=dTnu_dt;
@@ -1400,6 +1449,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 						dphie_dt0=dphie_dt;
 						da_dt0=da_dt;
 						if(paramrelic->phi_model&&rho_phi!=0.) drhophi_dt0=drhophi_dt;
+						if(paramrelic->vs_model&&rho_vs!=0.) drhovs_dt0=drhovs_dt;
 
 						for (i=1;i<=NNUC;i++)
 						{
@@ -1426,6 +1476,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav;
 						break;
 					}
 
@@ -1441,6 +1492,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 						phie=phie_sav+dphie_dt*dt;
 						a=a_sav+da_dt*dt;
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav+drhophi_dt*dt;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav+drhovs_dt*dt;
 
 						dT0_dt=dT_dt;
 						dTnu0_dt=dTnu_dt;
@@ -1448,6 +1500,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 						dphie_dt0=dphie_dt;
 						da_dt0=da_dt;
 						if(paramrelic->phi_model&&rho_phi!=0.) drhophi_dt0=drhophi_dt;
+						if(paramrelic->vs_model&&rho_vs!=0.) drhovs_dt0=drhovs_dt;
 
 						for (i=1;i<=NNUC;i++)
 						{
@@ -1472,6 +1525,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav2[i];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav2;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav2;
 						break;
 					}
 
@@ -1487,6 +1541,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 						phie=phie_sav2+dphie_dt*dt;
 						a=a_sav2+da_dt*dt;
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav2+drhophi_dt*dt;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav2+drhovs_dt*dt;
 
 						dT0_dt=dT_dt;
 						dTnu0_dt=dTnu_dt;
@@ -1494,6 +1549,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 						dphie_dt0=dphie_dt;
 						da_dt0=da_dt;
 						if(paramrelic->phi_model&&rho_phi!=0.) drhophi_dt0=drhophi_dt;
+						if(paramrelic->vs_model&&rho_vs!=0.) drhovs_dt0=drhovs_dt;
 
 						for (i=1;i<=NNUC;i++)
 						{
@@ -1504,7 +1560,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					}
 				}
 
-				fill_params(T,Tnu,phie,h_eta,a,rho_phi,dt,&dT_dt,&dTnu_dt,&dphie_dt,&dh_dt,&da_dt,&drhophi_dt,dY_dt,Y,Y,Am,Zm,Dm,reacparam,norm,loop,0,0,paramrelic,paramerror);
+				fill_params(T,Tnu,phie,h_eta,a,rho_phi,rho_vs,dt,&dT_dt,&dTnu_dt,&dphie_dt,&dh_dt,&da_dt,&drhophi_dt,&drhovs_dt,dY_dt,Y,Y,Am,Zm,Dm,reacparam,norm,loop,0,0,paramrelic,paramerror);
 
 				if(iloop==1)
 				{
@@ -1514,6 +1570,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					phie1=phie_sav+(dphie_dt+dphie_dt0)*0.5*dt;
 					a1=a_sav+(da_dt+da_dt0)*0.5*dt;
 					if(paramrelic->phi_model&&rho_phi!=0.) rhophi1=rhophi_sav+(drhophi_dt0+drhophi_dt)*0.5*dt;
+					if(paramrelic->vs_model&&rho_vs!=0.) rhovs1=rhovs_sav+(drhovs_dt0+drhovs_dt)*0.5*dt;
 
 					for (i=1;i<=NNUC;i++)
 					{
@@ -1530,6 +1587,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					phie_sav2=phie_sav+(dphie_dt+dphie_dt0)*0.5*dt;
 					a_sav2=a_sav+(da_dt+da_dt0)*0.5*dt;
 					if(paramrelic->phi_model&&rho_phi!=0.) rhophi_sav2=rhophi_sav+(drhophi_dt0+drhophi_dt)*0.5*dt;
+					if(paramrelic->vs_model&&rho_vs!=0.) rhovs_sav2=rhovs_sav+(drhovs_dt0+drhovs_dt)*0.5*dt;
 
 					for (i=1;i<=NNUC;i++)
 					{
@@ -1545,6 +1603,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					phie2=phie_sav2+(dphie_dt+dphie_dt0)*0.5*dt;
 					a2=a_sav2+(da_dt+da_dt0)*0.5*dt;
 					if(paramrelic->phi_model&&rho_phi!=0.) rhophi2=rhophi_sav2+(drhophi_dt0+drhophi_dt)*0.5*dt;
+					if(paramrelic->vs_model&&rho_vs!=0.) rhovs2=rhovs_sav2+(drhovs_dt0+drhovs_dt)*0.5*dt;
 
 					for (i=1;i<=NNUC;i++)
 					{
@@ -1563,6 +1622,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 			test+=(isnan(a1)||isnan(a2));
 			for (i=1;i<=NNUC;i++) test+=(isnan(Y1[i])||isnan(Y2[i])||(fabs(Y1[i])>Ytest&&Y1[i]<0.)||(fabs(Y2[i])>Ytest&&Y2[i]<0.));
 			if(paramrelic->phi_model&&rho_phi!=0.) test+=(isnan(rhophi1)||isnan(rhophi2)||rhophi1<0.||rhophi2<0.);
+			if(paramrelic->vs_model&&rho_vs!=0.) test+=(isnan(rhovs1)||isnan(rhovs2)||rhovs1<0.||rhovs2<0.);
 
 			test_precision=0;
 			test_precision+=(fabs(1.-T1/T2)>prec);
@@ -1571,6 +1631,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 			test_precision+=(fabs(1.-Tnu1/Tnu2)>prec);
 			test_precision+=(fabs(1.-a1/a2)>prec);
 			if(paramrelic->phi_model&&rho_phi!=0.) test_precision+=(fabs(1.-rhophi1/rhophi2)>prec);
+			if(paramrelic->vs_model&&rho_vs!=0.) test_precision+=(fabs(1.-rhovs1/rhovs2)>prec);
 
 			if(paramrelic->failsafe==5)
 			{
@@ -1594,9 +1655,15 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi2;
 				if(paramrelic->phi_model&&rho_phi!=0.) if(rho_phi<1.e-20*pow(pi,2.)/15.*pow(T,4.)) rho_phi=0.;
+				if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs2;
+				if(paramrelic->vs_model&&rho_vs!=0.) if(rho_vs<1.e-20*pow(pi,2.)/15.*pow(T,4.)) rho_vs=0.;
 #ifdef OUTPUT
-				//if(paramrelic->err==0) fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T/K_to_eV,Tnu/K_to_eV,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),rho_phi,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8]);
-				if(paramrelic->err==0) fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens_vs(Tnu,paramrelic),rho_phi,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9]);
+				if (paramrelic->err==0)
+				{
+					if (paramrelic->vs_model) {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens_vs(Tnu,paramrelic),neutdens_deriv_vs(Tnu,paramrelic),rho_phi,rho_vs*pow(1000,4.),dQdt_vs(T,paramrelic)*pow(1000,4.)/T,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+					else if (paramrelic->phi_model) {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),neutdens_deriv(Tnu,paramrelic),rho_phi,rho_vs,paramrelic->Gamma_phi*rho_phi*pow(1000,4.)/T,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+					else {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),neutdens_deriv(Tnu,paramrelic),rho_phi,rho_vs,entropy_Sigmarad(T,paramrelic),Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+				}
 #endif
 
 				if(!isnan(fabs(T2*prec/(T2-T1)))) minprec=fabs(T2*prec/(T2-T1));
@@ -1606,6 +1673,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				if(!isnan(fabs(a2*prec/(a2-a1)))) minprec=min(minprec,fabs(a2*prec/(a2-a1)));
 
 				if(paramrelic->phi_model&&rho_phi!=0.) if(!isnan(fabs(rhophi2*prec/(rhophi2-rhophi1)))) minprec=min(minprec,fabs(rhophi2*prec/(rhophi2-rhophi1)));
+				if(paramrelic->vs_model&&rho_vs!=0.) if(!isnan(fabs(rhovs2*prec/(rhovs2-rhovs1)))) minprec=min(minprec,fabs(rhovs2*prec/(rhovs2-rhovs1))); //absolutely no idea what this is
 
 				if(paramrelic->failsafe==5)
 				{
@@ -1637,6 +1705,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y[i]=Y_sav[i];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav;
+				if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav;
 			}
 
 #ifdef DEBUG
@@ -1647,7 +1716,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 	}
 	else if(paramrelic->failsafe<20) /* Runge-Kutta method of order 4 with adaptative stepsize */
 	{
-		double dT_rk[12],dh_eta_rk[12],dphie_rk[12],dTnu_rk[12],dY_rk[NNUC+1][12],drhophi_rk[12],da_rk[12];
+		double dT_rk[12],dh_eta_rk[12],dphie_rk[12],dTnu_rk[12],dY_rk[NNUC+1][12],drhophi_rk[12],drhovs_rk[12],da_rk[12];
 
 		double T_sav,h_eta_sav,phie_sav,Tnu_sav,Y_sav[NNUC+1],t_sav,a_sav,dt0;
 
@@ -1659,6 +1728,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 		double a1,a2,a2_sav;
 		double Y1[NNUC+1],Y2[NNUC+1],Y2_sav[NNUC+1];
 		double rhophi1,rhophi2,rhophi_sav,rhophi2_sav;
+		double rhovs1,rhovs2,rhovs_sav,rhovs2_sav;
 		int test=0;
 		int test_precision=0;
 		int niter=0;
@@ -1702,6 +1772,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y_sav[i]=Y[i];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rhophi_sav=rho_phi;
+				if(paramrelic->vs_model&&rho_vs!=0.) rhovs_sav=rho_vs;
 			}
 
 			for(int iloop=0;iloop<=11;iloop++)
@@ -1722,6 +1793,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav;
 						break;
 					}
 					case 1:
@@ -1737,6 +1809,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i]+0.5*dt*dY_rk[i][0];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav+0.5*drhophi_rk[0];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav+0.5*drhovs_rk[0];
 						break;
 					}
 					case 2:
@@ -1752,6 +1825,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i]+0.5*dt*dY_rk[i][1];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav+0.5*drhophi_rk[1];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav+0.5*drhovs_rk[1];
 						break;
 					}
 					case 3:
@@ -1767,6 +1841,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i]+dt*dY_rk[i][2];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav+drhophi_rk[2];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav+drhovs_rk[2];
 						break;
 					}
 
@@ -1784,6 +1859,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav;
 						break;
 					}
 					case 5:
@@ -1799,6 +1875,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i]+0.25*dt*dY_rk[i][4];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav+0.25*drhophi_rk[4];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav+0.25*drhovs_rk[4];
 						break;
 					}
 					case 6:
@@ -1814,6 +1891,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y_sav[i]+0.25*dt*dY_rk[i][5];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav+0.25*drhophi_rk[5];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav+0.25*drhovs_rk[5];
 						break;
 					}
 					case 7:
@@ -1830,6 +1908,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 						}
 						break;
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav+0.5*drhophi_rk[6];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav+0.5*drhovs_rk[6];
 
 					}
 					case 8: /* second half RK4 */
@@ -1845,6 +1924,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y2_sav[i];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi2_sav;
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs2_sav;
 						break;
 					}
 					case 9:
@@ -1860,6 +1940,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y2_sav[i]+0.25*dt*dY_rk[i][8];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi2_sav+0.25*drhophi_rk[8];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs2_sav+0.25*drhovs_rk[8];
 						break;
 					}
 					case 10:
@@ -1875,6 +1956,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y2_sav[i]+0.25*dt*dY_rk[i][9];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi2_sav+0.25*drhophi_rk[9];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs2_sav+0.25*drhovs_rk[9];
 						break;
 					}
 					case 11:
@@ -1890,13 +1972,14 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 							Y[i]=Y2_sav[i]+0.5*dt*dY_rk[i][10];
 						}
 						if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi2_sav+0.5*drhophi_rk[10];
+						if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs2_sav+0.5*drhovs_rk[10];
 						break;
 					}
 				}
 
 				double dT,dTnu,dphie,dh_eta,dY_dt[NNUC+1],da;
 
-				fill_params(T,Tnu,phie,h_eta,a,rho_phi,dt0,&dT,&dTnu,&dphie,&dh_eta,&da,&drhophi_dt,dY_dt,Y,Y,Am,Zm,Dm,reacparam,norm,0,0,0,paramrelic,paramerror);
+				fill_params(T,Tnu,phie,h_eta,a,rho_phi,rho_vs,dt0,&dT,&dTnu,&dphie,&dh_eta,&da,&drhophi_dt,&drhovs_dt,dY_dt,Y,Y,Am,Zm,Dm,reacparam,norm,0,0,0,paramrelic,paramerror);
 
 				dT_rk[iloop]=dT;
 				dTnu_rk[iloop]=dTnu;
@@ -1905,6 +1988,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				da_rk[iloop]=da;
 				for (i=1;i<=NNUC;i++) dY_rk[i][iloop]=dY_dt[i];
 				if(paramrelic->phi_model&&rho_phi!=0.) drhophi_rk[iloop]=drhophi_dt;
+				if(paramrelic->vs_model&&rho_vs!=0.) drhovs_rk[iloop]=drhovs_dt;
 
 				if(iloop==3)
 				{
@@ -1915,6 +1999,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					a1=a_sav+dt/6.*(da_rk[0]+2.*da_rk[1]+2.*da_rk[2]+da_rk[3]);
 					for (i=1;i<=NNUC;i++) Y1[i]=Y_sav[i]+dt/6.*(dY_rk[i][0]+2.*dY_rk[i][1]+2.*dY_rk[i][2]+dY_rk[i][3]);
 					if(paramrelic->phi_model&&rho_phi!=0.) rhophi1=rhophi_sav+dt/6.*(drhophi_rk[0]+2.*drhophi_rk[1]+2.*drhophi_rk[2]+drhophi_rk[3]);
+					if(paramrelic->vs_model&&rho_vs!=0.) rhovs1=rhovs_sav+dt/6.*(drhovs_rk[0]+2.*drhovs_rk[1]+2.*drhovs_rk[2]+drhovs_rk[3]);
 				}
 
 				if(iloop==7)
@@ -1927,6 +2012,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					a2_sav=a_sav+0.5*dt/6.*(da_rk[4]+2.*da_rk[5]+2.*da_rk[6]+da_rk[7]);
 					for (i=1;i<=NNUC;i++) Y2_sav[i]=Y_sav[i]+0.5*dt/6.*(dY_rk[i][4]+2.*dY_rk[i][5]+2.*dY_rk[i][6]+dY_rk[i][7]);
 					if(paramrelic->phi_model&&rho_phi!=0.) rhophi2_sav=rhophi_sav+0.5*dt/6.*(drhophi_rk[4]+2.*drhophi_rk[5]+2.*drhophi_rk[6]+drhophi_rk[7]);
+					if(paramrelic->vs_model&&rho_vs!=0.) rhovs2_sav=rhovs_sav+0.5*dt/6.*(drhovs_rk[4]+2.*drhovs_rk[5]+2.*drhovs_rk[6]+drhovs_rk[7]);
 				}
 
 				if(iloop==11)
@@ -1938,6 +2024,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					a2=a2_sav+0.5*dt/6.*(da_rk[8]+2.*da_rk[9]+2.*da_rk[10]+da_rk[11]);
 					for (i=1;i<=NNUC;i++) Y2[i]=Y2_sav[i]+0.5*dt/6.*(dY_rk[i][8]+2.*dY_rk[i][9]+2.*dY_rk[i][10]+dY_rk[i][11]);
 					if(paramrelic->phi_model&&rho_phi!=0.) rhophi2=rhophi2_sav+0.5*dt/6.*(drhophi_rk[8]+2.*drhophi_rk[9]+2.*drhophi_rk[10]+drhophi_rk[11]);
+					if(paramrelic->vs_model&&rho_vs!=0.) rhovs2=rhovs2_sav+0.5*dt/6.*(drhovs_rk[8]+2.*drhovs_rk[9]+2.*drhovs_rk[10]+drhovs_rk[11]);
 				}
 			}
 
@@ -1949,6 +2036,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 			test+=(isnan(a1)||isnan(a2));
 			for (i=1;i<=NNUC;i++) test+=(isnan(Y1[i])||isnan(Y2[i])||(fabs(Y1[i])>Ytest&&Y1[i]<0.)||(fabs(Y2[i])>Ytest&&Y2[i]<0.));
 			if(paramrelic->phi_model&&rho_phi!=0.) test+=(isnan(rhophi1)||isnan(rhophi2)||rhophi1<0.||rhophi2<0.);
+			if(paramrelic->vs_model&&rho_vs!=0.) test+=(isnan(rhovs1)||isnan(rhovs2)||rhovs1<0.||rhovs2<0.);
 
 
 			test_precision=0;
@@ -1958,6 +2046,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 			test_precision+=(fabs(1.-Tnu1/Tnu2)>prec);
 			test_precision+=(fabs(1.-a1/a2)>prec);
 			if(paramrelic->phi_model&&rho_phi!=0.) test_precision+=(fabs(1.-rhophi1/rhophi2)>prec);
+			if(paramrelic->vs_model&&rho_vs!=0.) test_precision+=(fabs(1.-rhovs1/rhovs2)>prec);
 
 			if(paramrelic->failsafe==10)
 			{
@@ -1978,9 +2067,15 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				for (i=1;i<=NNUC;i++) Y[i]=Y2[i];
 				if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi2;
 				if(paramrelic->phi_model&&rho_phi!=0.) if(rho_phi<1.e-20*pow(pi,2.)/15.*pow(T,4.)) rho_phi=0.;
+				if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs2;
+				if(paramrelic->vs_model&&rho_vs!=0.) if(rho_vs<1.e-20*pow(pi,2.)/15.*pow(T,4.)) rho_vs=0.;
 #ifdef OUTPUT
-				//if(paramrelic->err==0) fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T/K_to_eV,Tnu/K_to_eV,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),rho_phi,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8]);
-				if(paramrelic->err==0) fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens_vs(Tnu,paramrelic),rho_phi,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9]);
+				if (paramrelic->err==0)
+				{
+					if (paramrelic->vs_model) {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens_vs(Tnu,paramrelic),neutdens_deriv_vs(Tnu,paramrelic),rho_phi,rho_vs*pow(1000,4.),dQdt_vs(T,paramrelic)*pow(1000,4.)/T,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+					else if (paramrelic->phi_model) {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),neutdens_deriv(Tnu,paramrelic),rho_phi,rho_vs,paramrelic->Gamma_phi*rho_phi*pow(1000,4.)/T,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+					else {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),neutdens_deriv(Tnu,paramrelic),rho_phi,rho_vs,entropy_Sigmarad(T,paramrelic),Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+				}
 #endif
 
 				t=t_sav+dt;
@@ -1994,6 +2089,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				if(!isnan(fabs(a2*prec/(a2-a1)))) minprec=min(minprec,fabs(a2*prec/(a2-a1)));
 
 				if(paramrelic->phi_model&&rho_phi!=0.) if(!isnan(fabs(rhophi2*prec/(rhophi2-rhophi1)))) minprec=min(minprec,fabs(rhophi2*prec/(rhophi2-rhophi1)));
+				if(paramrelic->vs_model&&rho_vs!=0.) if(!isnan(fabs(rhovs2*prec/(rhovs2-rhovs1)))) minprec=min(minprec,fabs(rhovs2*prec/(rhovs2-rhovs1)));
 
 				if(paramrelic->failsafe==10)
 				{
@@ -2025,6 +2121,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y[i]=Y_sav[i];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav;
+				if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav;
 			}
 
 #ifdef DEBUG
@@ -2034,9 +2131,9 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 	}
 	else /* Runge-Kutta of order 45 methods */
 	{
-		double dT_rk[6],dh_eta_rk[6],dphie_rk[6],dTnu_rk[6],da_rk[6],dY_rk[NNUC+1][6],drhophi_rk[6];
+		double dT_rk[6],dh_eta_rk[6],dphie_rk[6],dTnu_rk[6],da_rk[6],dY_rk[NNUC+1][6],drhophi_rk[6],drhovs_rk[6];
 
-		double T_sav,h_eta_sav,phie_sav,Tnu_sav,a_sav,Y_sav[NNUC+1],rhophi_sav,t_sav,dt0;
+		double T_sav,h_eta_sav,phie_sav,Tnu_sav,a_sav,Y_sav[NNUC+1],rhophi_sav,rhovs_sav,t_sav,dt0;
 
 		double t2_sav,dt_sav;
 		double T1,T2,T2_sav;
@@ -2046,6 +2143,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 		double a1,a2,a2_sav;
 		double Y1[NNUC+1],Y2[NNUC+1],Y2_sav[NNUC+1];
 		double rhophi1,rhophi2,rhophi2_sav;
+		double rhovs1,rhovs2,rhovs2_sav;
 		int test=0;
 		int test_precision=0;
 		int niter=0;
@@ -2146,6 +2244,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y_sav[i]=Y[i];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rhophi_sav=rho_phi;
+				if(paramrelic->vs_model&&rho_vs!=0.) rhovs_sav=rho_vs;
 			}
 
 			int iloop;
@@ -2164,6 +2263,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y[i]=Y_sav[i];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav;
+				if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav;
 
 				for(je=0;je<iloop;je++)
 				{
@@ -2178,11 +2278,12 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 						Y[i]+=coefsteps[iloop-1][je]*dt*dY_rk[i][je];
 					}
 					if(paramrelic->phi_model&&rho_phi!=0.) rho_phi+=coefsteps[iloop-1][je]*dt*drhophi_rk[je];
+					if(paramrelic->vs_model&&rho_vs!=0.) rho_vs+=coefsteps[iloop-1][je]*dt*drhovs_rk[je];
 				}
 
 				double dT,dTnu,dphie,dh_eta,da,dY_dt[NNUC+1];
 
-				fill_params(T,Tnu,phie,h_eta,a,rho_phi,dt0,&dT,&dTnu,&dphie,&dh_eta,&da,&drhophi_dt,dY_dt,Y,Y,Am,Zm,Dm,reacparam,norm,0,0,0,paramrelic,paramerror);
+				fill_params(T,Tnu,phie,h_eta,a,rho_phi,rho_vs,dt0,&dT,&dTnu,&dphie,&dh_eta,&da,&drhophi_dt,&drhovs_dt,dY_dt,Y,Y,Am,Zm,Dm,reacparam,norm,0,0,0,paramrelic,paramerror);
 
 				dT_rk[iloop]=dT;
 				dTnu_rk[iloop]=dTnu;
@@ -2191,6 +2292,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				da_rk[iloop]=da;
 				for (i=1;i<=NNUC;i++) dY_rk[i][iloop]=dY_dt[i];
 				if(paramrelic->phi_model&&rho_phi!=0.) drhophi_rk[iloop]=drhophi_dt;
+				if(paramrelic->vs_model&&rho_vs!=0.) drhovs_rk[iloop]=drhovs_dt;
 			}
 
 			T1=T_sav;
@@ -2203,6 +2305,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				Y1[i]=Y_sav[i];
 			}
 			if(paramrelic->phi_model&&rho_phi!=0.) rhophi1=rhophi_sav;
+			if(paramrelic->vs_model&&rho_vs!=0.) rhovs1=rhovs_sav;
 
 			for(je=0;je<=ordermax;je++)
 			{
@@ -2216,6 +2319,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y1[i]+=coefsol1[je]*dt*dY_rk[i][je];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rhophi1+=coefsol1[je]*dt*drhophi_rk[je];
+				if(paramrelic->vs_model&&rho_vs!=0.) rhovs1+=coefsol1[je]*dt*drhovs_rk[je];
 			}
 
 			T2=T_sav;
@@ -2228,6 +2332,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				Y2[i]=Y_sav[i];
 			}
 			if(paramrelic->phi_model&&rho_phi!=0.) rhophi2=rhophi_sav;
+			if(paramrelic->vs_model&&rho_vs!=0.) rhovs2=rhovs_sav;
 
 			for(je=0;je<=ordermax;je++)
 			{
@@ -2241,6 +2346,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y2[i]+=coefsol2[je]*dt*dY_rk[i][je];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rhophi2+=coefsol2[je]*dt*drhophi_rk[je];
+				if(paramrelic->vs_model&&rho_vs!=0.) rhovs2+=coefsol2[je]*dt*drhovs_rk[je];
 			}
 
 			test=0;
@@ -2251,6 +2357,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 			test+=(isnan(a1)||isnan(a2));
 			for (i=1;i<=NNUC;i++) test+=(isnan(Y1[i])||isnan(Y2[i])||(fabs(Y1[i])>Ytest&&Y1[i]<0.)||(fabs(Y2[i])>Ytest&&Y2[i]<0.));
 			if(paramrelic->phi_model&&rho_phi!=0.) test+=(isnan(rhophi1)||isnan(rhophi2)||rhophi1<0.||rhophi2<0.);
+			if(paramrelic->vs_model&&rho_vs!=0.) test+=(isnan(rhovs1)||isnan(rhovs2)||rhovs1<0.||rhovs2<0.);
 
 			test_precision=0;
 			test_precision+=(fabs(1.-T1/T2)>prec);
@@ -2259,6 +2366,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 			test_precision+=(fabs(1.-Tnu1/Tnu2)>prec);
 			test_precision+=(fabs(1.-a1/a2)>prec);
 			if(paramrelic->phi_model&&rho_phi!=0.) test_precision+=(fabs(1.-rhophi1/rhophi2)>prec);
+			if(paramrelic->vs_model&&rho_vs!=0.) test_precision+=(fabs(1.-rhovs1/rhovs2)>prec);
 
 			if(paramrelic->failsafe%10==0)
 			{
@@ -2275,6 +2383,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 			if(!isnan(fabs(Tnu2*prec/(Tnu2-Tnu1)))) minprec=min(minprec,fabs(Tnu2*prec/(Tnu2-Tnu1)));
 			if(!isnan(fabs(a2*prec/(a2-a1)))) minprec=min(minprec,fabs(a2*prec/(a2-a1)));
 			if(paramrelic->phi_model&&rho_phi!=0.) minprec=min(minprec,fabs(rhophi2*prec/(rhophi2-rhophi1)));
+			if(paramrelic->vs_model&&rho_vs!=0.) minprec=min(minprec,fabs(rhovs2*prec/(rhovs2-rhovs1)));
 
 			if(paramrelic->failsafe%10==0)
 			{
@@ -2295,9 +2404,15 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 				for (i=1;i<=NNUC;i++) Y[i]=Y2[i];
 				if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi2;
 				if(paramrelic->phi_model&&rho_phi!=0.) if(rho_phi<1.e-20*pow(pi,2.)/15.*pow(T,4.)) rho_phi=0.;
+				if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs2;
+				if(paramrelic->vs_model&&rho_vs!=0.) if(rho_vs<1.e-20*pow(pi,2.)/15.*pow(T,4.)) rho_vs=0.;
 #ifdef OUTPUT
-				//if(paramrelic->err==0) fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T/K_to_eV,Tnu/K_to_eV,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),rho_phi,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8]);
-				if(paramrelic->err==0) fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens_vs(Tnu,paramrelic),rho_phi,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9]);
+				if (paramrelic->err==0)
+				{
+					if (paramrelic->vs_model) {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens_vs(Tnu,paramrelic),neutdens_deriv_vs(Tnu,paramrelic),rho_phi,rho_vs*pow(1000,4.),dQdt_vs(T,paramrelic)*pow(1000,4.)/T,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+					else if (paramrelic->phi_model) {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),neutdens_deriv(Tnu,paramrelic),rho_phi,rho_vs,paramrelic->Gamma_phi*rho_phi*pow(1000,4.)/T,Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+					else {fprintf(output,"%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e,%.5e\n",t/s_to_GeV,a,T*1000,Tnu*1000,pow(pi,2.)/15.*pow(T,4.),h_eta*pow(T,3.),neutdens(Tnu,paramrelic),neutdens_deriv(Tnu,paramrelic),rho_phi,rho_vs,entropy_Sigmarad(T,paramrelic),Y[1],Y[2],Y[3],Y[4],Y[5],Y[6],Y[7],Y[8],Y[9],h_eta/(M_u*g_to_GeV*2.*zeta3/pow(pi,2.)));}
+				}
 #endif
 
 				t=t_sav+dt;
@@ -2323,6 +2438,7 @@ int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct err
 					Y[i]=Y_sav[i];
 				}
 				if(paramrelic->phi_model&&rho_phi!=0.) rho_phi=rhophi_sav;
+				if(paramrelic->vs_model&&rho_vs!=0.) rho_vs=rhovs_sav;
 			}
 
 #ifdef DEBUG

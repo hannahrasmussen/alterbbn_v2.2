@@ -105,7 +105,11 @@ void Init_cosmomodel(struct relicparam* paramrelic)
 	paramrelic->phi_model=0;
 	paramrelic->eta_phi=paramrelic->Gamma_phi=paramrelic->n_phi=paramrelic->rhot_phi_Tmax=paramrelic->Tphi0=paramrelic->rhot_phi0=0.;
 
-  	paramrelic->entropy_model=1;
+	paramrelic->vs_model=0;
+	paramrelic->Gamma_vs=paramrelic->ns0=0.;
+	//paramrelic->eta_vs=paramrelic->Gamma_vs=paramrelic->rhot_vs_Tmax=paramrelic->Tvs0=paramrelic->rhot_vs0=0.;
+
+  paramrelic->entropy_model=1;
 	paramrelic->energy_model=1;
 
  	paramrelic->mgravitino=paramrelic->relicmass=0.;
@@ -443,9 +447,325 @@ void Init_neutron_decay(double tau, double tau_err, double fierz, double m_chi, 
 
 /*--------------------------------------------------------------*/
 
+void read_csv(int row, int col, char *filename, double **data)
+{
+	FILE *file;
+	file = fopen(filename, "r"); //what's the r?
+
+	int i = 0;
+	char line[4098];
+	while (fgets(line, 4098, file) && (i<row))
+	{
+		//double row[ssParams->nreal+1]; //what??
+		char *tmp = strdup(line);
+
+		int j = 0;
+		const char* tok;
+		for (tok = strtok(line, ","); tok && *tok; j++, tok=strtok(NULL, ","))
+		{
+			data[i][j] = atof(tok);
+		}
+		free(tmp);
+		i++;
+	}
+}
+
+void Init_vs(char ms_ch[256], char mix_ch[256], double ms_d, double mix_d, double ns0, int row, struct relicparam* paramrelic)
+{
+	int col = 3;
+	char folder[256] = "../";
+	paramrelic->vs_model = 1;
+	paramrelic->ms = ms_d;
+	paramrelic->mix = mix_d;
+	paramrelic->ns0 = ns0/pow(1000,3.); //expects it to be passed in terms of MeV^3, but we need to turn it into GeV^3 for use in the code
+	paramrelic->rhot_vs0 = ms_d*ns0/pow(1000,4.); //I think it might be easiest and most accurate to just pass in the initial ns value
+	ts(ms_d, mix_d, paramrelic);
+
+	char fname_Tcm_rhonu[256];
+	char fname_a_rhonu[256];
+	char fname_b_rhonu[256];
+	char fname_c_rhonu[256];
+	char fname_d_rhonu[256];
+	char fname_T_dQdt[256];
+	char fname_a_dQdt[256];
+	char fname_b_dQdt[256];
+	char fname_c_dQdt[256];
+	char fname_d_dQdt[256];
+	char fname_T_n2p[256];
+	char fname_a_n2p[256];
+	char fname_b_n2p[256];
+	char fname_c_n2p[256];
+	char fname_d_n2p[256];
+	char fname_T_p2n[256];
+	char fname_a_p2n[256];
+	char fname_b_p2n[256];
+	char fname_c_p2n[256];
+	char fname_d_p2n[256];
+
+	double **data_Tcm_rhonu;
+	double **data_a_rhonu;
+	double **data_b_rhonu;
+	double **data_c_rhonu;
+	double **data_d_rhonu;
+	double **data_T_dQdt;
+	double **data_a_dQdt;
+	double **data_b_dQdt;
+	double **data_c_dQdt;
+	double **data_d_dQdt;
+	double **data_T_n2p;
+	double **data_a_n2p;
+	double **data_b_n2p;
+	double **data_c_n2p;
+	double **data_d_n2p;
+	double **data_T_p2n;
+	double **data_a_p2n;
+	double **data_b_p2n;
+	double **data_c_p2n;
+	double **data_d_p2n;
+
+	strcat(folder,ms_ch); strcat(folder,"-"); strcat(folder,mix_ch); strcat(folder,"-FullTestNew/"); strcat(folder,ms_ch); strcat(folder,"-"); strcat(folder,mix_ch); strcat(folder,"-FullTestNew/"); strcat(folder, "mass_"); strcat(folder,ms_ch); strcat(folder, "_mix_"); strcat(folder,mix_ch);
+
+	strcpy(fname_Tcm_rhonu, folder); strcat(fname_Tcm_rhonu, "_Tcm_rhonu.csv");
+	strcpy(fname_a_rhonu, folder); strcat(fname_a_rhonu, "_a_rhonu.csv");
+	strcpy(fname_b_rhonu, folder); strcat(fname_b_rhonu, "_b_rhonu.csv");
+	strcpy(fname_c_rhonu, folder); strcat(fname_c_rhonu, "_c_rhonu.csv");
+	strcpy(fname_d_rhonu, folder); strcat(fname_d_rhonu, "_d_rhonu.csv");
+	strcpy(fname_T_dQdt, folder); strcat(fname_T_dQdt, "_T_dQdt.csv");
+	strcpy(fname_a_dQdt, folder); strcat(fname_a_dQdt, "_a_dQdt.csv");
+	strcpy(fname_b_dQdt, folder); strcat(fname_b_dQdt, "_b_dQdt.csv");
+	strcpy(fname_c_dQdt, folder); strcat(fname_c_dQdt, "_c_dQdt.csv");
+	strcpy(fname_d_dQdt, folder); strcat(fname_d_dQdt, "_d_dQdt.csv");
+	strcpy(fname_T_n2p, folder); strcat(fname_T_n2p, "_T_np.csv");
+	strcpy(fname_a_n2p, folder); strcat(fname_a_n2p, "_a_np.csv");
+	strcpy(fname_b_n2p, folder); strcat(fname_b_n2p, "_b_np.csv");
+	strcpy(fname_c_n2p, folder); strcat(fname_c_n2p, "_c_np.csv");
+	strcpy(fname_d_n2p, folder); strcat(fname_d_n2p, "_d_np.csv");
+	strcpy(fname_T_p2n, folder); strcat(fname_T_p2n, "_T_pn.csv");
+	strcpy(fname_a_p2n, folder); strcat(fname_a_p2n, "_a_pn.csv");
+	strcpy(fname_b_p2n, folder); strcat(fname_b_p2n, "_b_pn.csv");
+	strcpy(fname_c_p2n, folder); strcat(fname_c_p2n, "_c_pn.csv");
+	strcpy(fname_d_p2n, folder); strcat(fname_d_p2n, "_d_pn.csv");
+
+	//the number of rows for the three data types might not be the same, but it should always be the same relative to each other (for example, row in dQdt will always be one less than in rhonu I think)
+	data_Tcm_rhonu = (double **)malloc(row * sizeof(double *));
+	data_a_rhonu = (double **)malloc(row * sizeof(double *));
+	data_b_rhonu = (double **)malloc(row * sizeof(double *));
+	data_c_rhonu = (double **)malloc(row * sizeof(double *));
+	data_d_rhonu = (double **)malloc(row * sizeof(double *));
+	data_T_dQdt = (double **)malloc((row-1) * sizeof(double *));
+	data_a_dQdt = (double **)malloc((row-1) * sizeof(double *));
+	data_b_dQdt = (double **)malloc((row-1) * sizeof(double *));
+	data_c_dQdt = (double **)malloc((row-1) * sizeof(double *));
+	data_d_dQdt = (double **)malloc((row-1) * sizeof(double *));
+	data_T_n2p = (double **)malloc(row * sizeof(double *));
+	data_a_n2p = (double **)malloc(row * sizeof(double *));
+	data_b_n2p = (double **)malloc(row * sizeof(double *));
+	data_c_n2p = (double **)malloc(row * sizeof(double *));
+	data_d_n2p = (double **)malloc(row * sizeof(double *));
+	data_T_p2n = (double **)malloc(row * sizeof(double *));
+	data_a_p2n = (double **)malloc(row * sizeof(double *));
+	data_b_p2n = (double **)malloc(row * sizeof(double *));
+	data_c_p2n = (double **)malloc(row * sizeof(double *));
+	data_d_p2n = (double **)malloc(row * sizeof(double *));
+
+	for (int i = 0; i<row; i++) //hmm, row might matter here...
+	{
+		data_Tcm_rhonu[i] = (double *)malloc(col * sizeof(double));
+		data_a_rhonu[i] = (double *)malloc(col * sizeof(double));
+		data_b_rhonu[i] = (double *)malloc(col * sizeof(double));
+		data_c_rhonu[i] = (double *)malloc(col * sizeof(double));
+		data_d_rhonu[i] = (double *)malloc(col * sizeof(double));
+		data_T_n2p[i] = (double *)malloc(col * sizeof(double));
+		data_a_n2p[i] = (double *)malloc(col * sizeof(double));
+		data_b_n2p[i] = (double *)malloc(col * sizeof(double));
+		data_c_n2p[i] = (double *)malloc(col * sizeof(double));
+		data_d_n2p[i] = (double *)malloc(col * sizeof(double));
+		data_T_p2n[i] = (double *)malloc(col * sizeof(double));
+		data_a_p2n[i] = (double *)malloc(col * sizeof(double));
+		data_b_p2n[i] = (double *)malloc(col * sizeof(double));
+		data_c_p2n[i] = (double *)malloc(col * sizeof(double));
+		data_d_p2n[i] = (double *)malloc(col * sizeof(double));
+	}
+	for (int i = 0; i<row-1; i++) //hmm, row might matter here...
+	{
+		data_T_dQdt[i] = (double *)malloc(col * sizeof(double));
+		data_a_dQdt[i] = (double *)malloc(col * sizeof(double));
+		data_b_dQdt[i] = (double *)malloc(col * sizeof(double));
+		data_c_dQdt[i] = (double *)malloc(col * sizeof(double));
+		data_d_dQdt[i] = (double *)malloc(col * sizeof(double));
+	}
+
+	read_csv(row, col, fname_Tcm_rhonu, data_Tcm_rhonu);
+	read_csv(row, col, fname_a_rhonu, data_a_rhonu);
+	read_csv(row, col, fname_b_rhonu, data_b_rhonu);
+	read_csv(row, col, fname_c_rhonu, data_c_rhonu);
+	read_csv(row, col, fname_d_rhonu, data_d_rhonu);
+	read_csv(row-1, col, fname_T_dQdt, data_T_dQdt);
+	read_csv(row-1, col, fname_a_dQdt, data_a_dQdt);
+	read_csv(row-1, col, fname_b_dQdt, data_b_dQdt);
+	read_csv(row-1, col, fname_c_dQdt, data_c_dQdt);
+	read_csv(row-1, col, fname_d_dQdt, data_d_dQdt);
+	read_csv(row, col, fname_T_n2p, data_T_n2p);
+	read_csv(row, col, fname_a_n2p, data_a_n2p);
+	read_csv(row, col, fname_b_n2p, data_b_n2p);
+	read_csv(row, col, fname_c_n2p, data_c_n2p);
+	read_csv(row, col, fname_d_n2p, data_d_n2p);
+	read_csv(row, col, fname_T_p2n, data_T_p2n);
+	read_csv(row, col, fname_a_p2n, data_a_p2n);
+	read_csv(row, col, fname_b_p2n, data_b_p2n);
+	read_csv(row, col, fname_c_p2n, data_c_p2n);
+	read_csv(row, col, fname_d_p2n, data_d_p2n);
+
+	for (int i=0; i<row-1; i++)
+	{
+		paramrelic->Tcm_rho[i] = data_Tcm_rhonu[i+1][1];
+		paramrelic->arho[i] = data_a_rhonu[i+1][1];
+		paramrelic->brho[i] = data_b_rhonu[i+1][1];
+		paramrelic->crho[i] = data_c_rhonu[i+1][1];
+		paramrelic->drho[i] = data_d_rhonu[i+1][1];
+		paramrelic->Tnp[i] = data_T_n2p[i+1][1];
+		paramrelic->anp[i] = data_a_n2p[i+1][1];
+		paramrelic->bnp[i] = data_b_n2p[i+1][1];
+		paramrelic->cnp[i] = data_c_n2p[i+1][1];
+		paramrelic->dnp[i] = data_d_n2p[i+1][1];
+		paramrelic->Tpn[i] = data_T_p2n[i+1][1];
+		paramrelic->apn[i] = data_a_p2n[i+1][1];
+		paramrelic->bpn[i] = data_b_p2n[i+1][1];
+		paramrelic->cpn[i] = data_c_p2n[i+1][1];
+		paramrelic->dpn[i] = data_d_p2n[i+1][1];
+		//printf("%.15e, %.15e, %.15e, %.15e, %.15e \n", paramrelic.Tcm_rho[i], paramrelic.arho[i], paramrelic.brho[i], paramrelic.crho[i], paramrelic.drho[i]);
+	}
+	for (int i=0; i<row-2; i++)
+	{
+		paramrelic->TdQdt[i] = data_T_dQdt[i+1][1];
+		paramrelic->adQdt[i] = data_a_dQdt[i+1][1];
+		paramrelic->bdQdt[i] = data_b_dQdt[i+1][1];
+		paramrelic->cdQdt[i] = data_c_dQdt[i+1][1];
+		paramrelic->ddQdt[i] = data_d_dQdt[i+1][1];
+		//printf("%.15e, %.15e, %.15e, %.15e, %.15e \n", paramrelic->TdQdt[i], paramrelic->adQdt[i], paramrelic->bdQdt[i], paramrelic->cdQdt[i], paramrelic->ddQdt[i]);
+	}
+	return;
+}
+
+double rate1_vs(double ms, double mix)
+{
+	double num, den, Gamma;
+	num = 9*pow(Gf,2.)*alphaem*pow(ms,5.)*pow(sin(mix),2.);
+  den = 512*pow(pi,4.);
+  Gamma = num/den;
+  return Gamma;
+}
+
+double rate2_vs(double ms, double mix)
+{
+	double part1, part2, Gamma;
+	part1 = pow(Gf,2.)*pow(f_pi,2.)/(16*pi);
+	part2 = ms*(pow(ms,2.)-pow(mpi_neutral,2.))*pow(sin(mix),2.);
+	Gamma = part1*part2;
+	return Gamma;
+}
+
+double rate3_vs(double ms, double mix)
+{
+	double part1, part2, term, Gamma;
+	part1 = pow(Gf,2.)*pow(f_pi,2.)/(16*pi);
+	term = (pow(ms,2.) - pow(mpi_charged+me,2.))*(pow(ms,2.) - pow(mpi_charged-me,2.));
+	part2 = ms * sqrt(term) * pow(sin(mix),2.);
+	Gamma = part1*part2;
+	return 2*Gamma;
+}
+
+double rate4_vs(double ms, double mix)
+{
+	double part1, part2, term, Gamma;
+	part1 = pow(Gf,2.)*pow(f_pi,2.)/(16*pi);
+	term = (pow(ms,2.) - pow(mpi_charged+mu,2.))*(pow(ms,2.) - pow(mpi_charged-mu,2.));
+	part2 = ms * sqrt(term) * pow(sin(mix),2.);
+	Gamma = part1*part2;
+	return 2*Gamma;
+}
+
+void ts(double ms, double mix, struct relicparam* paramrelic)
+{
+	double Gam1=rate1_vs(ms, mix);
+	double Gam2=0;
+	double Gam3=0;
+	double Gam4=0;
+	if (ms>mpi_neutral) {Gam2 = rate2_vs(ms,mix);} //mass of a neutral pion
+	if (ms>(mpi_charged+me)) {Gam3 = rate3_vs(ms,mix);} //mass of a charged pion plus the mass of an electron
+  if (ms>(mpi_charged+mu)) {Gam4 = rate4_vs(ms,mix);} //mass of a charged pion plus the mass of a muon
+	paramrelic->tau_vs = 1/(Gam1+Gam2+Gam3+Gam4)*1000; //??multiply by 1000 just once since tau is in units of MeV^{-1}
+	paramrelic->Gamma_vs = (Gam1+Gam2+Gam3+Gam4)/1000; //??divide by 1000 just once since gamma is in units of MeV
+}
+
+double dQdt_vs(double T, struct relicparam* paramrelic)
+{
+	double Thold = T*1000; //T is passed in units of GeV, but our T array is in terms of MeV, so we need to use MeV to compare the two
+	double dQdt = 0.;
+	int index = 0;
+	double a,b,c,d,T_cs;
+
+	if (Thold<0.6635) return 0; //cubic spline fits poorly after this
+
+  for (int i=0; i<paramrelic->row-1; i++) //want to find the index we'll be using to find dQdt
+	{
+		if (Thold<paramrelic->TdQdt[i]) index=i; //if x is going up, not down, as i increases, this will need to be changed to if (x>output[i,0]):
+	}
+
+  T_cs = paramrelic->TdQdt[index];
+	a = paramrelic->adQdt[index]; b = paramrelic->bdQdt[index]; c = paramrelic->cdQdt[index]; d = paramrelic->ddQdt[index];
+  dQdt = a*pow((Thold-T_cs),3.) + b*pow((Thold-T_cs),2.) + c*(Thold-T_cs) + d;
+	dQdt = dQdt/pow(1000,5.); //turn into GeV^5
+	return dQdt;
+}
+
+double n2p_vs(double T9, struct relicparam* paramrelic)
+{
+	double Thold = T9*K_to_eV*1000; // T9 is in Kelvin, so K_to_eV turns it into GeV (not eV as one may think), then multiplying by 1000 gives MeV
+	double n2p;
+	int index = 0;
+	double a,b,c,d,T_cs;
+
+	for (int i=0; i<paramrelic->row; i++) //want to find the index we'll be using to find the neutron to proton rate
+	{
+		if (Thold<paramrelic->Tnp[i]) index=i; //if x is going up, not down, as i increases, this will need to be changed to if (x>output[i,0]):
+	}
+
+	T_cs = paramrelic->Tnp[index];
+	a = paramrelic->anp[index]; b = paramrelic->bnp[index]; c = paramrelic->cnp[index]; d = paramrelic->dnp[index];
+	n2p = a*pow((Thold-T_cs),3.) + b*pow((Thold-T_cs),2.) + c*(Thold-T_cs) + d;
+	n2p = n2p; //turn into some other unit??
+
+	return n2p;
+}
+
+double p2n_vs(double T9, struct relicparam* paramrelic)
+{
+	double Thold = T9*K_to_eV*1000; //// T9 is in Kelvin, so K_to_eV turns it into GeV (not eV as one may think), then multiplying by 1000 gives MeV
+	double p2n;
+	int index = 0;
+	double a,b,c,d,T_cs;
+
+	for (int i=0; i<paramrelic->row; i++) //want to find the index we'll be using to find the proton to neutron rate
+	{
+		if (Thold<paramrelic->Tpn[i]) index=i; //if x is going up, not down, as i increases, this will need to be changed to if (x>output[i,0]):
+	}
+
+	T_cs = paramrelic->Tpn[index];
+	a = paramrelic->apn[index]; b = paramrelic->bpn[index]; c = paramrelic->cpn[index]; d = paramrelic->dpn[index];
+	p2n = a*pow((Thold-T_cs),3.) + b*pow((Thold-T_cs),2.) + c*(Thold-T_cs) + d;
+	p2n = p2n; //turn into some other unit??
+
+	return p2n;
+}
+
+
+/*--------------------------------------------------------------*/
+
 double dark_density(double T, struct relicparam* paramrelic)
 {
 	if(paramrelic->phi_model) return 0.;
+	if(paramrelic->vs_model) return 0.;
 
 	if(paramrelic->size_table_rhoPD>1&&paramrelic->use_table_rhoPD)
 	{
@@ -518,6 +838,7 @@ double dark_density(double T, struct relicparam* paramrelic)
 double dark_density_pressure(double T, struct relicparam* paramrelic)
 {
 	if(paramrelic->phi_model) return 0.;
+	if(paramrelic->vs_model) return 0.;
 
 	if(T<paramrelic->Tdend) return 0.;
 
@@ -540,6 +861,7 @@ double dark_density_pressure(double T, struct relicparam* paramrelic)
 double sigma_entropy(double T, struct relicparam* paramrelic)
 {
 	if(paramrelic->phi_model) return 1.;
+	if(paramrelic->vs_model) return 1.;
 
 	if(paramrelic->Sigmarad0==0.) return 1.;
 
@@ -603,6 +925,7 @@ double sigma_entropy(double T, struct relicparam* paramrelic)
 double dark_entropy(double T, struct relicparam* paramrelic)
 {
 	if(paramrelic->phi_model) return 0.;
+	if(paramrelic->vs_model) return 0.;
 
 	if((paramrelic->sd0==0.)&&(paramrelic->Sigmad0==0.)) return 0.;
 
@@ -665,6 +988,7 @@ double dark_entropy(double T, struct relicparam* paramrelic)
 double dark_entropy_derivative(double T, struct relicparam* paramrelic)
 {
 	if(paramrelic->phi_model) return 0.;
+	if(paramrelic->vs_model) return 0.;
 
 	if((paramrelic->sd0==0.)&&(paramrelic->Sigmad0==0.)) return 0.;
 
@@ -697,6 +1021,7 @@ double dark_entropy_derivative(double T, struct relicparam* paramrelic)
 double dark_entropy_Sigmad(double T, struct relicparam* paramrelic)
 {
 	if(paramrelic->phi_model) return 0.;
+	if(paramrelic->vs_model) return 0.;
 
 	if((paramrelic->sd0==0.)&&(paramrelic->Sigmad0==0.)) return 0.;
 
@@ -734,6 +1059,7 @@ double dark_entropy_Sigmad(double T, struct relicparam* paramrelic)
 double entropy_Sigmarad(double T, struct relicparam* paramrelic)
 {
 	if(paramrelic->phi_model) return 0.; //paramrelic->Gamma_phi*paramrelic->rho_phi/T;
+	if(paramrelic->vs_model) return 0.; //dQdt_vs(T,paramrelic)/T;
 
 	if((paramrelic->Sigmarad0==0.)||(T<paramrelic->TSigmaradend)) return 0.;
 
@@ -749,6 +1075,7 @@ double entropy_Sigmarad(double T, struct relicparam* paramrelic)
 double nonthermal(double T, struct relicparam* paramrelic)
 {
 	if(paramrelic->phi_model) return 0.; //paramrelic->eta_phi*paramrelic->Gamma_phi*paramrelic->rho_phi;
+	if(paramrelic->vs_model) return 0.;
 
 	if((paramrelic->nt0==0.)||(T<paramrelic->Tnend)) return 0.;
 
@@ -758,7 +1085,7 @@ double nonthermal(double T, struct relicparam* paramrelic)
 /*--------------------------------------------------------------*/
 
 
-double neutdens_vs(double Tnu, struct relicparam* paramrelic) //is this in the right units? I think it needs to be in GeV? Tnu is probably in GeV as well...
+double neutdens_vs(double Tnu, struct relicparam* paramrelic)
 {
 	double Thold = Tnu*1000; //Tnu is passed in units of GeV, but our Tcm array is in terms of MeV, so we need to use MeV to compare the two
 	double rho = 0.;
@@ -767,10 +1094,10 @@ double neutdens_vs(double Tnu, struct relicparam* paramrelic) //is this in the r
 
   for (int i=0; i<paramrelic->row; i++) //want to find the index we'll be using to find rho
 	{
-		if (Thold<paramrelic->Tcm_arr[i]) {index=i;} //if x is going up, not down, as i increases, this will need to be changed to if (x>output[i,0]):
+		if (Thold<paramrelic->Tcm_rho[i]) {index=i;} //if x is going up, not down, as i increases, this will need to be changed to if (x>output[i,0]):
 	}
 
-  Tcm = paramrelic->Tcm_arr[index];
+  Tcm = paramrelic->Tcm_rho[index];
 	a = paramrelic->arho[index]; b = paramrelic->brho[index]; c = paramrelic->crho[index]; d = paramrelic->drho[index];
 
   rho = a*pow((Thold-Tcm),3.) + b*pow((Thold-Tcm),2.) + c*(Thold-Tcm) + d;
@@ -859,10 +1186,10 @@ double neutdens_deriv_vs(double Tnu, struct relicparam* paramrelic) //is this in
 
   for (int i=0; i<paramrelic->row; i++) //want to find the index we'll be using to find rho
 	{
-      if (Thold<paramrelic->Tcm_arr[i]) {index=i;} //if x is going up, not down, as i increases, this will need to be changed to if (x>output[i,0]):
+      if (Thold<paramrelic->Tcm_rho[i]) {index=i;} //if x is going up, not down, as i increases, this will need to be changed to if (x>output[i,0]):
 	}
 
-  Tcm = paramrelic->Tcm_arr[index];
+  Tcm = paramrelic->Tcm_rho[index];
 	a = paramrelic->arho[index]; b = paramrelic->brho[index]; c = paramrelic->crho[index];
 
   drho = 3*a*pow((Thold-Tcm),2.) + 2*b*(Thold-Tcm) + c;

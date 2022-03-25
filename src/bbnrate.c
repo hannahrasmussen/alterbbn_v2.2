@@ -6,7 +6,7 @@
 void rate_weak(double f[], struct relicparam* paramrelic, struct errorparam* paramerror)
 /* Calculates the nuclear forward rates of weak interaction reactions */
 /* err=0: central values; err=1: high values; err=2: low values; err=3:
-   error only for process number paramerror->errnumber; err=4: random 
+   error only for process number paramerror->errnumber; err=4: random
    gaussian error for all processes; err<0:  (-err) */
 {
     double ferrlow[12],ferrhigh[12];
@@ -35,24 +35,24 @@ void rate_weak(double f[], struct relicparam* paramrelic, struct errorparam* par
             ferrlow[ie]=-0.9;
         }
 
-        if(paramrelic->err==1) 
-			for(ie=2;ie<=11;ie++) 
+        if(paramrelic->err==1)
+			for(ie=2;ie<=11;ie++)
 				f[ie]*=fabs(1.+ferrhigh[ie]);
 
-        if(paramrelic->err==2) 
-			for(ie=2;ie<=11;ie++) 
+        if(paramrelic->err==2)
+			for(ie=2;ie<=11;ie++)
 				f[ie]*=fabs(1.+ferrlow[ie]);
 
-        if(paramrelic->err==3 && paramerror->errnumber>=2 && paramerror->errnumber<=11) 
+        if(paramrelic->err==3 && paramerror->errnumber>=2 && paramerror->errnumber<=11)
 			f[paramerror->errnumber]*=min(9.,1.+min(UPPERR,ferrhigh[paramerror->errnumber]));
 
         if(paramrelic->err==4)
         {
-            for(ie=2;ie<=11;ie++) 
+            for(ie=2;ie<=11;ie++)
             {
-				if(paramerror->random[ie]<0.) 
+				if(paramerror->random[ie]<0.)
 					f[ie]*=max(0.1,1.-max(LOWERR,ferrlow[ie])*paramerror->random[ie]);
-				else 
+				else
 					f[ie]*=min(9.,1.+min(UPPERR,ferrhigh[ie])*paramerror->random[ie]);
 			}
         }
@@ -88,24 +88,24 @@ double rate_pn_enu(int type, double T9, double Tnu, relicparam* paramrelic, erro
 		double beta = p/x;				/// relativistic beta
 		double eta = 2.*pi*alphaem/beta;	/// Fermi function parameter
 		double xnu, dI;
-		switch(type) 
+		switch(type)
 		{
-			case 1:								
+			case 1:
 				xnu = q-x;
 				dI = (x+b)*xnu*xnu*p*eta		/// n --> pe-u
 					  /(1.-exp(-eta)) 			/// p and e- are on the same side of the forward reaction
-					  /(1.+exp(-x/z)) 			/// x+b, +xnu, -x/z, -xnu/znu, -xi, +eta -> ++---+
+					  /(1.+exp(-x/z)) 			/// x+b, +xnu, -x/z, -xnu/znu, -xi, +eta -> ++---+ //electron distribution function
 					  /(1.+exp(-xnu/znu-xi));
 				break;
 
-			case 2: 							
+			case 2:
 				xnu = q+x;
 				dI = (x-b)*xnu*xnu*p			/// ne+ <--> pu
 					  /(1.+exp(x/z)) 			/// p and e+ are on opposite sides of the reaction
 					  /(1.+exp(-xnu/znu-xi));  	/// x-b, +xnu, +x/z, xnu/znu, -xi, -> -++--0
 				break;
 
-			case 3:								
+			case 3:
 				xnu = q+x;
 				dI = (x-b)*xnu*xnu*p*eta		/// nu ---> pe-
 					  /(1.-exp(-eta)) 			/// p and e- are on the same side of the forward reaction
@@ -113,12 +113,12 @@ double rate_pn_enu(int type, double T9, double Tnu, relicparam* paramrelic, erro
 					  /(1.+exp(xnu/znu+xi));
 				break;
 
-			case 4:								
+			case 4:
 				xnu = q-x;
 				dI = (x+b)*xnu*xnu*p*eta		/// pe- ---> nu
 					  /(exp(eta)-1.) 			/// p and e- are on the same side of the reverse reaction
 					  /(1.+exp(x/z)) 			/// x+b, -xnu, +x/z, +xnu/znu, +xi, -eta -> +-+++-
-					  /(1.+exp(xnu/znu+xi)); 
+					  /(1.+exp(xnu/znu+xi));
 				break;
 
 			default:
@@ -138,18 +138,18 @@ double rate_pn_enu(int type, double T9, double Tnu, relicparam* paramrelic, erro
 /*----------------------------------------------------*/
 
 void rate_pn_noerr(double f[], double r[], double T9, double Tnu, relicparam* paramrelic, errorparam* paramerror)
-/** 
- * Calculates the nuclear forward and reverse rates f[] and r[] 
+/**
+ * Calculates the nuclear forward and reverse rates f[] and r[]
  * of the reaction p <-> n at the temperature T9
- * 		err=0: central values; 
- * 		err=1: high values; 
+ * 		err=0: central values;
+ * 		err=1: high values;
  * 		err=2: low values;
- * 		err=3: error only for process number paramerror->errnumber; 
+ * 		err=3: error only for process number paramerror->errnumber;
  * 		err=4: random gaussian error
  */
 {
-	double tau = paramerror->life_neutron;    /// measured neutron lifetime at T=0 in s 
-	double b = paramrelic->fierz;             /// beta-decay Fierz interference term 
+	double tau = paramerror->life_neutron;    /// measured neutron lifetime at T=0 in s
+	double b = paramrelic->fierz;             /// beta-decay Fierz interference term
 	double xi = paramrelic->xinu1;            /// neutrino chemical potential
 	int n = paramrelic->beta_samples;
 
@@ -178,7 +178,7 @@ void rate_pn_noerr(double f[], double r[], double T9, double Tnu, relicparam* pa
     }
     else 	// explicitly compute beta decay
     {
-		double I0 = rate_pn_enu(1,0,0,paramrelic, paramerror);
+		    double I0 = rate_pn_enu(1,0,0,paramrelic, paramerror);
         double int1 = rate_pn_enu(1,T9,Tnu,paramrelic,paramerror);
         double int2 = rate_pn_enu(2,T9,Tnu,paramrelic,paramerror);
         double int3 = rate_pn_enu(3,T9,Tnu,paramrelic,paramerror);
@@ -186,27 +186,42 @@ void rate_pn_noerr(double f[], double r[], double T9, double Tnu, relicparam* pa
         f[1]=(int1+int2)/I0/tau;
         r[1]=(int3+int4)/I0/tau;
     }
+    //printf("For stand cosmo models f[1] is %.15e\n",f[1]);
 
     return;
 }
 
 /*----------------------------------------------------*/
 
+void rate_pn_noerr_vs(double f[], double r[], double T9, double Tnu, relicparam* paramrelic, errorparam* paramerror) //alright what units are T9 and what units are we trying to save in f[1] and r[1]
+{
+  //double tau = 1; //paramerror->life_neutron;    // measured neutron lifetime at T=0 in s, do we want this included?
+  //double I0 = rate_pn_enu(1,0,0,paramrelic, paramerror); //yo what is this??
+  double n2p = n2p_vs(T9,paramrelic);
+  double p2n = p2n_vs(T9,paramrelic);
+  f[1]=n2p*(1.52*10e21);
+  r[1]=p2n*(1.52*10e21);
+  //printf("For vs models f[1] is %.15e\n",f[1]);
+  return;
+}
+
+/*----------------------------------------------------*/
+
 void rate_pn(double f[], double r[], double T9, double Tnu, relicparam* paramrelic, errorparam* paramerror)
-/** 
- * Calculates the nuclear forward and reverse rates f[] and r[] 
+/**
+ * Calculates the nuclear forward and reverse rates f[] and r[]
  * of the reaction p <-> n at the temperature T9
- * 		err=0: central values; 
- * 		err=1: high values; 
+ * 		err=0: central values;
+ * 		err=1: high values;
  * 		err=2: low values;
- * 		err=3: error only for process number paramerror->errnumber; 
+ * 		err=3: error only for process number paramerror->errnumber;
  * 		err=4: random gaussian error
  */
 {
     double ferr,rerr;
     ferr=rerr=0.;
-	
-	rate_pn_noerr(f,r,T9,Tnu,paramrelic,paramerror);
+  if (paramrelic->vs_model) {rate_pn_noerr_vs(f,r,T9,Tnu,paramrelic,paramerror);}
+	else {rate_pn_noerr(f,r,T9,Tnu,paramrelic,paramerror);}
 
     if(paramrelic->err>0)
     {
@@ -248,7 +263,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
  * below at the temperature T9 */
 /* err=0: central values; err=1: high values; err=2: low values; err=4:
  * random gaussian error; err=3: error only for process number (errnumber) */
-{	
+{
     double ferrlow[NNUCREACMAX+1],ferrhigh[NNUCREACMAX+1];
     int ie;
 
@@ -258,7 +273,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
         ferrlow[ie]=-0.9;
      }
 
-#if defined(_OPENMP) && NMAX>30	
+#if defined(_OPENMP) && NMAX>30
 #pragma omp parallel for
 #endif
 	for(ie=12;ie<=(int)min(100,NNUCREAC);ie++)
@@ -303,7 +318,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				}
 				break;
 			}
-			
+
 			case 14:
 			{
 				/* He3 + n -> g + He4 */    // Wagoner 1969
@@ -673,7 +688,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				}
 				break;
 			}
-			
+
 			case 26:
 			{
 				/* H3 + a -> g + Li7 */     // Serpico et al 2004
@@ -964,7 +979,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				}
 				break;
 			}
-			
+
 			case 31:
 			{
 				/* He3 + H2 -> p + He4 */   // Serpico et al 2004
@@ -1004,7 +1019,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 															 +4.8023403e8*pow(T9,13./3.)+1.6138031e9*pow(T9,2./3.)
 															 +5.5023454e9*pow(T9,4./3.)-2.9668793e10*pow(T9,5./3.)
 															 -9.5677252e10*pow(T9,7./3.)+2.4498194e10*pow(T9,8./3.))*pow(T9,-2./3.))/
-											  f[31]-1.,2.));											  
+											  f[31]-1.,2.));
 					}
 					else
 					{
@@ -1464,7 +1479,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				f[69]=pow(T9,-2./3.)*8.65e9*exp(-8.52/pow(T9,1./3.)-T9/2.53*T9/2.53)+pow(T9,-1.5)*2.31e9*exp(-4.64/T9);
 				break;
 			}
-			
+
 			case 70:
 			{
 				/* B8 + n -> p + a + He4 */     // original Wagoner code
@@ -1481,7 +1496,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+5.79e8/T9*exp(-3.046/T9)+pow(T9,-0.75)*8.5e8*exp(-5.8/T9);
 				break;
 			}
-			
+
 			case 72:
 			{
 				/* B11 + p -> 2a + He4 */   // Caughlan-Fowler 1988
@@ -1491,35 +1506,35 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+pow(T9,-1.5)*4.03e6*exp(-1.734/T9)+pow(T9,-1.5)*6.73e9*exp(-6.262/T9)+3.88e9/T9*exp(-14.154/T9);
 				break;
 			}
-			
+
 			case 73:
 			{
 				/* C11 + n -> 2a + He4 */   // Wagoner 1969
 				f[73]=1.58e8;
 				break;
 			}
-			
+
 			case 74:
 			{
 				/* C12 + n -> g + C13 */    // Wagoner 1969
 				f[74]=450.;
 				break;
 			}
-			
+
 			case 75:
 			{
 				/* C13 + n -> g + C14 */    // Wagoner 1969
 				f[75]=pow(T9,-1.5)*2.38e5*exp(-1.67/T9)+119.;
 				break;
 			}
-			
+
 			case 76:
 			{
 				/* N14 + n -> g + N15 */    // Wagoner 1969
 				f[76]=9940.;
 				break;
 			}
-			
+
 			case 77:
 			{
 				/* N13 + n -> p + C13 */    // NACRE 1999
@@ -1530,14 +1545,14 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				ferrhigh[77]=0.3; /* CHECK!!!! */
 				break;
 			}
-			
+
 			case 78:
 			{
 				/* N14 + n -> p + C14 */    // Caughlan-Fowler 1988
 				f[78]=(sqrt(T9)*0.361+1.+T9*0.502)*2.39e5+1.112e8/sqrt(T9)*exp(-4.983/T9);
 				break;
 			}
-			
+
 			case 79:
 			{
 				/* O15 + n -> p + N15 */    // NACRE 1999
@@ -1546,14 +1561,14 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				f[79]*=(1.+3.87e-1*exp(-26.171/T9+1.18e-1*T9));
 				break;
 			}
-			
+
 			case 80:
 			{
 				/* O15 + n -> a + C12 */    // Caughlan-Fowler 1988
 				f[80]=(sqrt(T9)*0.188+1.+T9*0.015)*3.5e7;
 				break;
 			}
-			
+
 			case 81:
 			{
 				/* C12 + p -> g + N13 */    // NACRE 1999
@@ -1561,7 +1576,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+1.e5*pow(T9,-3./2.)*exp(-4.913/T9)+4.24e5*pow(T9,-3./2.)*exp(-21.62/T9);
 				break;
 			}
-			
+
 			case 82:
 			{
 				/* C13 + p -> g + N14 */    // NACRE 1999
@@ -1571,7 +1586,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				f[82]*=(1.-2.07*exp(-37.938/T9));
 				break;
 			}
-			
+
 			case 83:
 			{
 				/* C14 + p -> g + N15 */    // Caughlan-Fowler 1988
@@ -1581,7 +1596,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+pow(T9,-1.5)*5360.*exp(-3.811/T9)+pow(T9,-1./3.)*98200.*exp(-4.739/T9);
 				break;
 			}
-			
+
 			case 84:
 			{
 				/* N13 + p -> g + O14 */    // Caughlan-Fowler 1988
@@ -1591,7 +1606,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+pow(T9,-1.5)*2.43e5*exp(-6.348/T9);
 				break;
 			}
-			
+
 			case 85:
 			{
 				/* N14 + p -> g + O15 */    // Caughlan-Fowler 1988
@@ -1602,7 +1617,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+pow(T9,-1.5)*2370.*exp(-3.011/T9)+exp(-12.53/T9)*21900.;
 				break;
 			}
-			
+
 			case 86:
 			{
 				/* N15 + p -> g + O16 */    // Caughlan-Fowler 1988
@@ -1612,7 +1627,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+pow(T9,-1.5)*11100.*exp(-3.328/T9)+pow(T9,-1.5)*14900.*exp(-4.665/T9)+pow(T9,-1.5)*3.8e6*exp(-11.048/T9);
 				break;
 			}
-			
+
 			case 87:
 			{
 				/* N15 + p -> a + C12 */    // NACRE 1999
@@ -1627,7 +1642,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				}
 				break;
 			}
-			
+
 			case 88:
 			{
 				/* C12 + a -> g + O16 */    // Caughlan-Fowler 1988
@@ -1636,14 +1651,14 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+pow(T9,-1.5)*1250.*exp(-27.499/T9)+pow(T9,5.)*0.0143*exp(-15.541/T9);
 				break;
 			}
-			
+
 			case 89:
 			{
 				/* B10 + a -> p + C13 */    // Wagoner 1969
 				f[89]=pow(T9,-2./3.)*9.6e14*exp(-27.99/pow(T9,1./3.));
 				break;
 			}
-			
+
 			case 90:
 			{
 				/* B11 + a -> p + C14 */    // Caughlan-Fowler 1988
@@ -1654,7 +1669,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+pow(T9,-1.5)*0.00544*exp(-2.827/T9)+pow(T9,-1.5)*336.*exp(-5.178/T9)+5.32e6/pow(T9,0.375)*exp(-11.617/T9);
 				break;
 			}
-			
+
 			case 91:
 			{
 				/* C11 + a -> p + N14 */    // Caughlan-Fowler 1988
@@ -1664,14 +1679,14 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				f[91]*= (1.+0.140*exp(-0.275/T9-0.210*T9));
 				break;
 			}
-			
+
 			case 92:
 			{
 				/* N12 + a -> p + O15 */    // Caughlan-Fowler 1988
 				f[92]=pow(T9,-2./3.)*5.59e16*exp(-35.6/pow(T9,1./3.));
 				break;
 			}
-			
+
 			case 93:
 			{
 				/* N13 + a -> p + O16 */    // Caughlan-Fowler 1988
@@ -1679,14 +1694,14 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						*3.23e17*pow(T9,-1.5)*exp(-35.829/pow(T9/(T9*0.0776+1.+pow(T9,5./3.)*0.0264/pow(T9*0.0776+1.,2./3.)),1./3.));
 				break;
 			}
-			
+
 			case 94:
 			{
 				/* B10 + a -> n + N13 */    // Caughlan-Fowler 1988
 				f[94]=pow(T9,-2./3.)*1.2e13*exp(-27.989/pow(T9,1./3.)-T9/9.589*T9/9.589);
 				break;
 			}
-			
+
 			case 95:
 			{
 				/* B11 + a -> n + N14 */    // Caughlan-Fowler 1988
@@ -1696,14 +1711,14 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 						+pow(T9,-1.5)*1.79*exp(-2.827/T9)+pow(T9,-1.5)*1710.*exp(-5.178/T9)+pow(T9,0.6)*4.49e6*exp(-8.596/T9);
 				break;
 			}
-			
+
 			case 96:
 			{
 				/* B12 + a -> n + N15 */    // Wagoner 1969
 				f[96]=pow(T9,-2./3.)*3.04e15*exp(-28.45/pow(T9,1./3.));
 				break;
 			}
-			
+
 			case 97:
 			{
 				/* C13 + a -> n + O16 */    // NACRE 1999
@@ -1749,7 +1764,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				}
 				break;
 			}
-			
+
 			case 100:
 			{
 				/* C13 + d -> p + C14 */    // Iocco et al 2007
@@ -1772,7 +1787,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 
 #include "bbnrate.h"
 
-#if defined(_OPENMP) && NMAX>30	
+#if defined(_OPENMP) && NMAX>30
 #pragma omp parallel for
 #endif
 	for(ie=101;ie<=NNUCREAC;ie++)
@@ -1785,14 +1800,14 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 		{
 			double temp;
 			int je;
-		
-			if(T9<=10.&&T9>=0.01) 
+
+			if(T9<=10.&&T9>=0.01)
 			{
 				temp=af[ie][0];
-				
+
 				for(je=1;je<=5;je++) temp+=af[ie][je]*pow(T9,(2.*je-5.)/3.);
 				temp+=af[ie][6]*log(T9);
-					
+
 				f[ie]=exp(temp);
 			}
 			else if(T9>10.)
@@ -1802,15 +1817,15 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 				double sav[2];
 
 				temp=af[ie][0];
-			
-				for(je=0;je<=1;je++) 
+
+				for(je=0;je<=1;je++)
 				{
 					T9tmp=5.+5.*je;
 
 					temp=af[ie][0];
 					for(ke=1;ke<=5;ke++) temp+=af[ie][ke]*pow(T9tmp,(2.*ke-5.)/3.);
 					temp+=af[ie][6]*log(T9tmp);
-					
+
 					sav[je]=exp(temp);
 				}
 				f[ie]=((sav[1]-sav[0]))*(log(10.)-log(5.))*(log(T9)-log(5.))+sav[0];
@@ -1823,14 +1838,14 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
 
 				temp=af[ie][0];
 
-				for(je=0;je<=1;je++) 
+				for(je=0;je<=1;je++)
 				{
 					T9tmp=0.01+0.04*je;
 
 					temp=af[ie][0];
 					for(ke=1;ke<=5;ke++) temp+=af[ie][ke]*pow(T9tmp,(2.*ke-5.)/3.);
 					temp+=af[ie][6]*log(T9tmp);
-					
+
 					sav[je]=exp(temp);
 				}
 				f[ie]=((sav[1]-sav[0]))*(log(0.05)-log(0.01))*(log(T9)-log(0.01))+sav[0];
@@ -1842,7 +1857,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
     /* ############################################################# */
 
     for(ie=12;ie<=NNUCREAC;ie++) f[ie]=max(0.,f[ie]);
-    
+
     if(paramrelic->err>0)
     {
         for(ie=12;ie<=NNUCREAC;ie++)
@@ -1851,7 +1866,7 @@ void rate_all(double f[], double T9, struct relicparam* paramrelic, struct error
             if((ferrlow[ie]>0.)||(ferrlow[ie]<-0.9)) ferrlow[ie]=-0.9;
             if(paramrelic->err==1) f[ie]*=1.+ferrhigh[ie];
             if(paramrelic->err==2) f[ie]*=1.+ferrlow[ie];
- 			if(paramrelic->err==4) 
+ 			if(paramrelic->err==4)
  			{
 				if(paramerror->random[ie]<0.) f[ie]*=max(0.1,1.-max(LOWERR,ferrlow[ie])*paramerror->random[ie]);
 				else f[ie]*=min(9.,1.+min(UPPERR,ferrhigh[ie])*paramerror->random[ie]);

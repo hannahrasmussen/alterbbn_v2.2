@@ -41,6 +41,17 @@
 #define alphaem  		0.007297353 /* fine-structure constant */
 
 /*--------------------------------------------------------------------*/
+/* Defining constants I use for vs decay to calculate rate1, rate2, rate3, and rate4
+* I 'm sure many are defined in other units above, but I don't really feel like messing with units more than I need to */
+
+#define f_pi 				131 //pion decay constant
+#define Gf 					1.166e-11 //Fermi constant
+#define me 					510.9989461e-3 // electron mass in MeV
+#define mpi_charged 139.569 //charged pion mass in MeV
+#define mpi_neutral 135 //neutral pion mass in MeV
+#define mu 					105.661 //muon mass in MeV
+
+/*--------------------------------------------------------------------*/
 
 #ifdef REACLIB
 	//#define CHECKLOW        // Uncomment to check if an isotope has a very low abundance
@@ -137,12 +148,33 @@ typedef struct relicparam
 	/*  Pointers for the cubic spline interpolation of rho_nu and drho_nu   */
 	/*----------------------------------------------------------------------*/
 
+	int vs_model;
+	double Gamma_vs, ns0, rhot_vs0;
+	//double eta_vs, Gamma_vs, rhot_vs_Tmax, Tvs0, rhot_vs0;
+	double ms;
+	double mix;
+	double tau_vs;
 	double row;
-	double Tcm_arr[1000];
+	double Tcm_rho[1000];
 	double arho[1000];
 	double brho[1000];
 	double crho[1000];
 	double drho[1000];
+	double TdQdt[1000];
+	double adQdt[1000];
+	double bdQdt[1000];
+	double cdQdt[1000];
+	double ddQdt[1000];
+	double Tnp[1000];
+	double anp[1000];
+	double bnp[1000];
+	double cnp[1000];
+	double dnp[1000];
+	double Tpn[1000];
+	double apn[1000];
+	double bpn[1000];
+	double cpn[1000];
+	double dpn[1000];
 
 }
 relicparam;
@@ -241,6 +273,16 @@ void Init_gravitino(double mgravitino, struct relicparam* paramrelic);
 void Init_scalarfield(double rhotilde_phi_Tmax, double Tmax, double T_RH, double eta_phi, double n_phi,struct relicparam* paramrelic);
 void Init_dark_density_table(double table[2][NTABMAX], int nlines, relicparam* paramrelic);
 void Init_neutron_decay(double tau_n, double tau_n_error, double fierz, double m_chi, double B_chi, relicparam* paramrelic);
+void read_csv(int row, int col, char *filename, double **data);
+void Init_vs(char ms_ch[256], char mix_ch[256], double ms_d, double mix_d, double ns0, int row, struct relicparam* paramrelic);
+double rate1_vs(double ms, double mix);
+double rate2_vs(double ms, double mix);
+double rate3_vs(double ms, double mix);
+double rate4_vs(double ms, double mix);
+void ts(double ms, double mix, struct relicparam* paramrelic);
+double dQdt_vs(double T, struct relicparam* paramrelic);
+double n2p_vs(double T9, struct relicparam* paramrelic);
+double p2n_vs(double T9, struct relicparam* paramrelic);
 double dark_density(double T, struct relicparam* paramrelic);
 double dark_density_pressure(double T, struct relicparam* paramrelic);
 double sigma_entropy(double T, struct relicparam* paramrelic);
@@ -259,12 +301,13 @@ double neutN(double T);
 double rate_pn_enu(int type, double T9, double Tnu, relicparam* paramrelic, errorparam* paramerror);
 void rate_weak(double f[], struct relicparam* paramrelic, struct errorparam* paramerror);
 void rate_pn_noerr(double f[], double r[], double T9, double Tnu, relicparam* paramrelic, errorparam* paramerror);
+void rate_pn_noerr_vs(double f[], double r[], double T9, double Tnu, relicparam* paramrelic, errorparam* paramerror);
 void rate_pn(double f[], double r[], double T9, double Tnu, struct relicparam* paramrelic, struct errorparam* paramerror);
 void rate_all(double f[], double T9, struct relicparam* paramrelic, struct errorparam* paramerror);
 
 /* bbn.c */
 int linearize(double T, const double reacparam[NNUCREACMAX+1][10], double f[NNUCREACMAX+1], double r[NNUCREACMAX+1], int loop, int inc, int ip, double dt, double Y0[NNUC+1], double Y[NNUC+1], double dY_dt[NNUC+1], double rhob);
-int fill_params(double T, double Tnu, double phie, double h_eta, double a, double rho_phi, double dt0, double* dT, double* dTnu, double* dphie, double* dh_eta, double* da, double* drhophi, double dY_dt[NNUC+1], double Y0[NNUC+1], double Y[NNUC+1], const double Am[NNUC+1], const double Zm[NNUC+1], const double Dm[NNUC+1], const double reacparam[NNUCREAC+1][10], double norm, int loop, int inc, int ip, struct relicparam* paramrelic, struct errorparam* paramerror);
+int fill_params(double T, double Tnu, double phie, double h_eta, double a, double rho_phi, double rho_vs, double dt0, double* dT, double* dTnu, double* dphie, double* dh_eta, double* da, double* drhophi, double* drhovs, double dY_dt[NNUC+1], double Y0[NNUC+1], double Y[NNUC+1], const double Am[NNUC+1], const double Zm[NNUC+1], const double Dm[NNUC+1], const double reacparam[NNUCREAC+1][10], double norm, int loop, int inc, int ip, struct relicparam* paramrelic, struct errorparam* paramerror);
 int nucl_single(struct relicparam* paramrelic, double ratioH[NNUC+1], struct errorparam* paramerror);
 int nucl_err(struct relicparam* paramrelic, double ratioH[NNUC+1], double cov_ratioH[NNUC+1][NNUC+1]);
 int nucl(struct relicparam* paramrelic, double ratioH[NNUC+1]);

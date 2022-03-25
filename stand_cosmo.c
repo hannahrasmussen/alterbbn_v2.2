@@ -53,7 +53,7 @@ int main(int argc,char** argv)
 	H2_H=ratioH[3];Yp=ratioH[6];Li7_H=ratioH[8];Be7_H=ratioH[9];He3_H=ratioH[5];Li6_H=ratioH[7];
 	printf(" high:\t %.3e\t %.3e\t %.3e\t %.3e\t %.3e\t %.3e\n\n",Yp,H2_H,He3_H,Li7_H,Li6_H,Be7_H);
 
-	paramrelic.err=3;
+	/*paramrelic.err=3;
 	if(nucl_err(&paramrelic,ratioH,cov_ratioH))
 	{
 		printf("--------------------\n\n");
@@ -76,7 +76,7 @@ int main(int argc,char** argv)
 		printf("Li6/H\t %f\t %f\t %f\t %f\t %f\t %f\n",corr_ratioH[7][6],corr_ratioH[7][3],corr_ratioH[7][5],corr_ratioH[7][8],corr_ratioH[7][7],corr_ratioH[7][9]);
 		printf("Be7/H\t %f\t %f\t %f\t %f\t %f\t %f\n\n",corr_ratioH[9][6],corr_ratioH[9][3],corr_ratioH[9][5],corr_ratioH[9][8],corr_ratioH[9][7],corr_ratioH[9][9]);
 	}
-	else printf("Uncertainty calculation failed\n\n");
+	else printf("Uncertainty calculation failed\n\n"); */
 
 	/*paramrelic.err=4;
 	if(nucl_err(&paramrelic,ratioH,cov_ratioH))
@@ -103,7 +103,7 @@ int main(int argc,char** argv)
 	}
 	else printf("Uncertainty calculation failed\n\n");*/
 
-	paramrelic.err=0;
+	/*paramrelic.err=0;
 	int compat=bbn_excluded(&paramrelic);
 
 	if(compat==1) printf("Excluded by BBN constraints (chi2 without correlations)\n");
@@ -115,7 +115,7 @@ int main(int argc,char** argv)
 
 	if(compat==1) printf("Excluded by BBN constraints (chi2 including correlations)\n");
 	else if(compat==0) printf("Compatible with BBN constraints (chi2 including correlations)\n");
-	else printf("Computation failed (chi2 including correlations)\n");
+	else printf("Computation failed (chi2 including correlations)\n");*/
 
 	return 1;
 }

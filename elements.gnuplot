@@ -36,4 +36,5 @@ set style line 9 lc rgb "#f763c1" lw 2 #pink for Y(7Be)
 
 #plot 'stand_cosmo.csv' using 1:2 with circles, '' using 1:3 with circles, '' using 1:4 with circles, '' using 1:5 with circles, '' using 1:6 with circles, '' using 1:7 with circles
 
-plot 'evolution.csv' using 3:9 with lines ls 1, '' using 3:10 with lines ls 2, '' using 3:11 with lines ls 3, '' using 3:12 with lines ls 4, '' using 3:13 with lines ls 5, '' using 3:14 with lines ls 6, '' using 3:15 with lines ls 7, '' using 3:16 with lines ls 8, '' using 3:17 with lines ls 9
+plot 'evolution_vs.csv' using 3:12 with lines ls 1, '' using 3:13 with lines ls 2, '' using 3:14 with lines ls 3, '' using 3:15 with lines ls 4, '' using 3:16 with lines ls 5, '' using 3:17 with lines ls 6, '' using 3:18 with lines ls 7, '' using 3:19 with lines ls 8, '' using 3:20 with lines ls 9
+#plot 'evolution.csv' using 3:11 with lines ls 1, '' using 3:12 with lines ls 2, '' using 3:13 with lines ls 3, '' using 3:14 with lines ls 4, '' using 3:15 with lines ls 5, '' using 3:16 with lines ls 6, '' using 3:17 with lines ls 7, '' using 3:18 with lines ls 8, '' using 3:19 with lines ls 9
